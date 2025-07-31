@@ -5,14 +5,14 @@
 
 import { HelpFormatter } from './help-formatter.js';
 
-export const VERSION = '2.0.0-alpha.80';
+export const VERSION = '2.0.0-alpha.81';
 
 export const MAIN_HELP = `
 🌊 Claude-Flow v${VERSION} - Enterprise-Grade AI Agent Orchestration Platform
 
-🎯 ENTERPRISE FEATURES: Complete ruv-swarm integration with 87 MCP tools, neural networking, and production-ready infrastructure
-🐝 NEW: Pure Node.js implementation - No Deno dependency! TBench integration for AI agent benchmarking
-⚡ ALPHA 80: GitHub-enhanced init with automatic checkpoint releases, separated standard/GitHub modes
+🎯 ENTERPRISE FEATURES: Complete ruv-swarm integration with 90+ MCP tools, neural networking, and production-ready infrastructure
+🐝 NEW: Claude Code 1.0.51+ full compatibility with enhanced hooks and batch processing
+⚡ ALPHA 81: Advanced concurrent execution patterns, TodoWrite batching optimization, separated MCP coordination
 
 USAGE:
   claude-flow <command> [options]

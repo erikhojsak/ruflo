@@ -14,7 +14,7 @@ import {
 } from './command-registry.js';
 import { parseFlags } from './utils.js';
 
-const VERSION = '2.0.0-alpha.80';
+const VERSION = '2.0.0-alpha.81';
 
 function printHelp() {
   console.log(`

@@ -4,7 +4,7 @@
  * This version can be run directly from GitHub
  */
 
-const VERSION = '2.0.0-alpha.80';
+const VERSION = '2.0.0-alpha.81';
 
 // Simple color functions
 const chalk = {

@@ -326,7 +326,7 @@ async function createGitHubSettingsJson() {
             },
             {
               type: 'command',
-              command: './.claude/helpers/github-checkpoint-hooks.sh pre-edit "{{tool_input}}"'
+              command: 'bash .claude/helpers/github-checkpoint-hooks.sh pre-edit "{{tool_input}}"'
             }
           ]
         }
@@ -350,7 +350,7 @@ async function createGitHubSettingsJson() {
             },
             {
               type: 'command',
-              command: './.claude/helpers/github-checkpoint-hooks.sh post-edit "{{tool_input}}"'
+              command: 'bash .claude/helpers/github-checkpoint-hooks.sh post-edit "{{tool_input}}"'
             }
           ]
         }
@@ -360,7 +360,7 @@ async function createGitHubSettingsJson() {
           hooks: [
             {
               type: 'command',
-              command: './.claude/helpers/github-checkpoint-hooks.sh task "{{user_prompt}}"'
+              command: 'bash .claude/helpers/github-checkpoint-hooks.sh task "{{user_prompt}}"'
             }
           ]
         }
@@ -374,7 +374,7 @@ async function createGitHubSettingsJson() {
             },
             {
               type: 'command',
-              command: './.claude/helpers/github-checkpoint-hooks.sh session-end'
+              command: 'bash .claude/helpers/github-checkpoint-hooks.sh session-end'
             }
           ]
         }
