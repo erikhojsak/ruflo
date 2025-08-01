@@ -33,10 +33,7 @@ export async function isValidAgentType(type: string): Promise<boolean> {
 /**
  * Resolve legacy agent types to current equivalents
  */
-export function resolveLegacyAgentType(legacyType: string): string {
-  const mapped = LEGACY_AGENT_MAPPING[legacyType as keyof typeof LEGACY_AGENT_MAPPING];
-  return mapped || legacyType;
-}
+export const resolveLegacyAgentType = resolveLegacy;
 
 /**
  * Create JSON Schema for agent type validation (async)
