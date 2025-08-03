@@ -768,15 +768,6 @@ The swarm should be self-documenting - use memory_store to save all important in
 
       // If --claude flag is used, force Claude Code even if CLI not available
       if (flags && flags.claude) {
-        // Check if claude command exists
-        let claudeAvailable = false;
-        try {
-          execSync('which claude', { stdio: 'ignore' });
-          claudeAvailable = true;
-        } catch {
-          claudeAvailable = false;
-        }
-        
         console.log('🐝 Launching Claude Flow Swarm System...');
         console.log(`📋 Objective: ${objective}`);
         console.log(`🎯 Strategy: ${strategy}`);
@@ -801,7 +792,7 @@ The swarm should be self-documenting - use memory_store to save all important in
           console.log('🔓 Using --dangerously-skip-permissions by default for seamless swarm execution');
         }
         
-        // Spawn claude with the prompt as the first argument
+        // Spawn claude with the prompt as the first argument (exactly like hive-mind does)
         const claudeProcess = spawn('claude', claudeArgs, {
           stdio: 'inherit',
           shell: false,
@@ -841,21 +832,19 @@ The swarm should be self-documenting - use memory_store to save all important in
           process.exit(code || 0);
         });
         
-        return;
-      } else {
-        // Claude CLI not available, provide instructions
-        console.log('⚠️  Claude CLI not found. Please install Claude Code:');
-        console.log('     https://claude.ai/download');
-        console.log('\n📋 Once installed, copy this prompt into Claude Code:\n');
-        console.log('═'.repeat(80));
-        console.log(swarmPrompt);
-        console.log('═'.repeat(80));
+        // Handle spawn errors (e.g., claude not found)
+        claudeProcess.on('error', (err) => {
+          if (err.code === 'ENOENT') {
+            console.error('\n❌ Claude Code CLI not found. Please install Claude Code:');
+            console.error('   https://claude.ai/download');
+            console.error('\n📋 Swarm prompt saved to:', promptFile);
+            console.error('   You can copy the prompt from the file and paste it into Claude Code.');
+          } else {
+            console.error('\n❌ Failed to launch Claude Code:', err.message);
+          }
+          process.exit(1);
+        });
         
-        // Save prompt to file for easy access
-        const promptFile = path.join(process.cwd(), '.claude-flow', `swarm-prompt-${Date.now()}.txt`);
-        await mkdirAsync(path.dirname(promptFile));
-        await writeTextFile(promptFile, swarmPrompt);
-        console.log(`\n💾 Prompt saved to: ${promptFile}`);
         return;
       }
 
