@@ -876,11 +876,7 @@ The swarm should be self-documenting - use memory_store to save all important in
       }
       console.log();
 
-      const strategy = flags.strategy || 'auto';
-      const mode = flags.mode || 'centralized';
-      const maxAgents = flags['max-agents'] || 5;
-
-      // Get strategy-specific guidance
+      // Get strategy-specific guidance using already declared variables
       const strategyGuidance = getStrategyGuidance(strategy, objective);
       const modeGuidance = getModeGuidance(mode);
       const agentRecommendations = getAgentRecommendations(strategy, maxAgents, objective);
