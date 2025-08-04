@@ -552,10 +552,12 @@ Execute your role in the MLE-STAR workflow with full coordination and hook integ
     // Execute tasks phase by phase
     for (const [phaseIndex, phaseTasks] of executionPlan.entries()) {
       this.currentPhase = `Phase ${phaseIndex + 1}`;
-      console.log(`\n🔄 Phase ${phaseIndex + 1}: ${phaseTasks.length} concurrent tasks`);
       
-      // Show task board
-      this.displayTaskBoard(taskStatuses, phaseTasks);
+      // Show regular task board or update concurrent display
+      if (!concurrentDisplay) {
+        console.log(`\n🔄 Phase ${phaseIndex + 1}: ${phaseTasks.length} concurrent tasks`);
+        this.displayTaskBoard(taskStatuses, phaseTasks);
+      }
       
       // Mark tasks as in-progress
       phaseTasks.forEach(task => {
