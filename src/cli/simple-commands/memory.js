@@ -175,12 +175,11 @@ async function showMemoryStats(loadMemory) {
   }
 }
 
-async function exportMemory(subArgs, loadMemory) {
+async function exportMemory(subArgs, loadMemory, namespace) {
   const filename = subArgs[1] || `memory-export-${Date.now()}.json`;
 
   try {
     const data = await loadMemory();
-    const namespace = getNamespaceFromArgs(subArgs);
 
     let exportData = data;
     if (namespace) {
