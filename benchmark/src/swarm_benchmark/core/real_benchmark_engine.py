@@ -196,11 +196,11 @@ class RealBenchmarkEngine(BenchmarkEngine):
             elif task.strategy == StrategyType.OPTIMIZATION:
                 command.extend(["sparc", "refactor", task.objective])
             else:
-                # Default to swarm for unknown strategies - always non-interactive
+                # Default to swarm for unknown strategies with executor
                 command.extend(["swarm", task.objective])
                 command.extend(["--strategy", task.strategy.value])
                 command.extend(["--mode", task.mode.value])
-                command.extend(["--executor", "--analysis"])  # Always non-interactive with analysis mode
+                command.append("--executor")  # Use built-in executor for non-interactive
         
         # Add common parameters
         if task.parameters.get("parallel"):
