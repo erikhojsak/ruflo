@@ -541,7 +541,7 @@ describe('Sorting Algorithms', () => {
       validate = true
     } = options;
 
-    console.log('🎯 Starting REAL Training Pipeline');
+    console.log('🎯 Starting Training Pipeline');
     console.log('━'.repeat(50));
 
     await this.initialize();
