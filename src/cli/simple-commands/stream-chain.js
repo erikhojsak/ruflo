@@ -14,6 +14,12 @@ import path from 'path';
 export async function streamChainCommand(args, flags) {
   const subcommand = args[0] || 'help';
 
+  // Check if background flag is set
+  if (flags.background || flags.bg) {
+    console.log('🔄 Running stream chain in background...');
+    return runBackgroundStreamChain(args, flags);
+  }
+
   switch (subcommand) {
     case 'run':
       return runStreamChain(args.slice(1), flags);
@@ -27,9 +33,168 @@ export async function streamChainCommand(args, flags) {
     case 'test':
       return testStreamConnection(flags);
     
+    case 'monitor':
+      return monitorBackgroundChains(flags);
+    
+    case 'kill':
+      return killBackgroundChain(args.slice(1), flags);
+    
     case 'help':
     default:
       return showStreamChainHelp();
+  }
+}
+
+/**
+ * Run stream chain in background
+ */
+async function runBackgroundStreamChain(args, flags) {
+  const { spawn } = await import('child_process');
+  const subcommand = args[0] || 'run';
+  
+  // Build command for background execution
+  const command = `npx claude-flow stream-chain ${args.join(' ')}`;
+  const flagString = Object.entries(flags)
+    .filter(([key]) => key !== 'background' && key !== 'bg')
+    .map(([key, value]) => `--${key}${value === true ? '' : ` ${value}`}`)
+    .join(' ');
+  
+  const fullCommand = `${command} ${flagString}`.trim();
+  
+  console.log(`📋 Command: ${fullCommand}`);
+  
+  // Spawn in background
+  const child = spawn('sh', ['-c', fullCommand], {
+    detached: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  
+  // Store background process info
+  const processId = `stream_${Date.now()}`;
+  await storeBackgroundProcess(processId, fullCommand, child.pid);
+  
+  console.log(`✅ Stream chain started in background`);
+  console.log(`   Process ID: ${processId}`);
+  console.log(`   PID: ${child.pid}`);
+  console.log('');
+  console.log('📊 Monitor with: stream-chain monitor');
+  console.log(`🛑 Stop with: stream-chain kill ${processId}`);
+  
+  // Detach from child process
+  child.unref();
+  
+  return { processId, pid: child.pid };
+}
+
+/**
+ * Store background process information
+ */
+async function storeBackgroundProcess(processId, command, pid) {
+  const fs = await import('fs/promises');
+  const processFile = '.claude-flow/stream-chains.json';
+  
+  let processes = {};
+  try {
+    const data = await fs.readFile(processFile, 'utf8');
+    processes = JSON.parse(data);
+  } catch {
+    // File doesn't exist yet
+  }
+  
+  processes[processId] = {
+    command,
+    pid,
+    startTime: new Date().toISOString(),
+    status: 'running'
+  };
+  
+  await fs.mkdir('.claude-flow', { recursive: true });
+  await fs.writeFile(processFile, JSON.stringify(processes, null, 2));
+}
+
+/**
+ * Monitor background stream chains
+ */
+async function monitorBackgroundChains(flags) {
+  const fs = await import('fs/promises');
+  const processFile = '.claude-flow/stream-chains.json';
+  
+  try {
+    const data = await fs.readFile(processFile, 'utf8');
+    const processes = JSON.parse(data);
+    
+    console.log('📊 Background Stream Chains');
+    console.log('━'.repeat(50));
+    
+    for (const [id, info] of Object.entries(processes)) {
+      const status = await checkProcessStatus(info.pid);
+      console.log(`\n🔗 ${id}`);
+      console.log(`   Command: ${info.command}`);
+      console.log(`   PID: ${info.pid}`);
+      console.log(`   Started: ${info.startTime}`);
+      console.log(`   Status: ${status ? '🟢 Running' : '🔴 Stopped'}`);
+    }
+    
+    if (Object.keys(processes).length === 0) {
+      console.log('No background stream chains running');
+    }
+  } catch (error) {
+    console.log('No background stream chains found');
+  }
+}
+
+/**
+ * Kill a background stream chain
+ */
+async function killBackgroundChain(args, flags) {
+  const processId = args[0];
+  
+  if (!processId) {
+    console.error('❌ Error: Please specify a process ID');
+    console.log('Usage: stream-chain kill <process_id>');
+    return;
+  }
+  
+  const fs = await import('fs/promises');
+  const processFile = '.claude-flow/stream-chains.json';
+  
+  try {
+    const data = await fs.readFile(processFile, 'utf8');
+    const processes = JSON.parse(data);
+    
+    if (!processes[processId]) {
+      console.error(`❌ Process ${processId} not found`);
+      return;
+    }
+    
+    const info = processes[processId];
+    
+    // Kill the process
+    try {
+      process.kill(info.pid, 'SIGTERM');
+      console.log(`✅ Killed stream chain ${processId} (PID: ${info.pid})`);
+      
+      // Update status
+      processes[processId].status = 'killed';
+      processes[processId].endTime = new Date().toISOString();
+      await fs.writeFile(processFile, JSON.stringify(processes, null, 2));
+    } catch (error) {
+      console.error(`❌ Failed to kill process: ${error.message}`);
+    }
+  } catch (error) {
+    console.error('❌ Error reading process file:', error.message);
+  }
+}
+
+/**
+ * Check if a process is still running
+ */
+async function checkProcessStatus(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
   }
 }
 
