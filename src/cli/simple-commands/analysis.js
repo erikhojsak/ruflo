@@ -430,6 +430,15 @@ EXAMPLES:
   # Token usage with full analysis
   claude-flow analysis token-usage --breakdown --cost-analysis
 
+  # Monitor Claude session in real-time
+  claude-flow analysis claude-monitor
+
+  # Get current Claude session cost
+  claude-flow analysis claude-cost
+
+  # Run Claude with automatic token tracking
+  CLAUDE_CODE_ENABLE_TELEMETRY=1 claude-flow swarm "task" --claude
+
 🎯 Analysis helps with:
   • Token usage tracking & cost management
   • Performance optimization
