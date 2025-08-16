@@ -1725,6 +1725,67 @@ class ClaudeFlowMCPServer {
           timestamp: new Date().toISOString(),
         };
 
+      // DAA Tools Implementation
+      case 'daa_agent_create':
+        if (global.daaManager) {
+          return global.daaManager.daa_agent_create(args);
+        }
+        return {
+          success: false,
+          error: 'DAA manager not initialized',
+          timestamp: new Date().toISOString(),
+        };
+        
+      case 'daa_capability_match':
+        if (global.daaManager) {
+          return global.daaManager.daa_capability_match(args);
+        }
+        return {
+          success: false,
+          error: 'DAA manager not initialized',
+          timestamp: new Date().toISOString(),
+        };
+        
+      case 'daa_resource_alloc':
+        if (global.daaManager) {
+          return global.daaManager.daa_resource_alloc(args);
+        }
+        return {
+          success: false,
+          error: 'DAA manager not initialized',
+          timestamp: new Date().toISOString(),
+        };
+        
+      case 'daa_lifecycle_manage':
+        if (global.daaManager) {
+          return global.daaManager.daa_lifecycle_manage(args);
+        }
+        return {
+          success: false,
+          error: 'DAA manager not initialized',
+          timestamp: new Date().toISOString(),
+        };
+        
+      case 'daa_communication':
+        if (global.daaManager) {
+          return global.daaManager.daa_communication(args);
+        }
+        return {
+          success: false,
+          error: 'DAA manager not initialized',
+          timestamp: new Date().toISOString(),
+        };
+        
+      case 'daa_consensus':
+        if (global.daaManager) {
+          return global.daaManager.daa_consensus(args);
+        }
+        return {
+          success: false,
+          error: 'DAA manager not initialized',
+          timestamp: new Date().toISOString(),
+        };
+        
       default:
         return {
           success: true,
