@@ -4,7 +4,7 @@
  * Test data for agent-related testing
  * Following London School principle of explicit test data
  */
-import type { V3AgentType } from '../helpers/swarm-instance';
+import type { V3AgentType } from '../helpers/swarm-instance.js';
 
 /**
  * Agent configuration fixtures
