@@ -169,7 +169,6 @@ check_once() {
     fi
 
     return 0
-    fi
 }
 
 # Main command handling
