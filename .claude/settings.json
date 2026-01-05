@@ -98,7 +98,7 @@
           {
             "type": "command",
             "timeout": 3000,
-            "command": ".claude/helpers/swarm-hooks.sh pre-task \"$TOOL_INPUT_prompt\" 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/swarm-hooks.sh pre-task \"$TOOL_INPUT_prompt\" 2>/dev/null || true"
           }
         ]
       }
@@ -115,12 +115,12 @@
           {
             "type": "command",
             "timeout": 4000,
-            "command": ".claude/helpers/learning-hooks.sh store \"Edit: $TOOL_INPUT_file_path\" code 0.7 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/learning-hooks.sh store \"Edit: $TOOL_INPUT_file_path\" code 0.7 2>/dev/null || true"
           },
           {
             "type": "command",
             "timeout": 3000,
-            "command": ".claude/helpers/checkpoint-manager.sh auto-checkpoint \"File edit: $TOOL_INPUT_file_path\" 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/checkpoint-manager.sh auto-checkpoint \"File edit: $TOOL_INPUT_file_path\" 2>/dev/null || true"
           }
         ]
       },
@@ -135,7 +135,7 @@
           {
             "type": "command",
             "timeout": 2000,
-            "command": ".claude/helpers/swarm-monitor.sh check 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/swarm-monitor.sh check 2>/dev/null || true"
           }
         ]
       },
@@ -150,17 +150,17 @@
           {
             "type": "command",
             "timeout": 3000,
-            "command": ".claude/helpers/swarm-monitor.sh check 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/swarm-monitor.sh check 2>/dev/null || true"
           },
           {
             "type": "command",
             "timeout": 3000,
-            "command": ".claude/helpers/swarm-hooks.sh post-task \"$TOOL_INPUT_prompt\" true 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/swarm-hooks.sh post-task \"$TOOL_INPUT_prompt\" true 2>/dev/null || true"
           },
           {
             "type": "command",
             "timeout": 4000,
-            "command": ".claude/helpers/checkpoint-manager.sh agent-checkpoint \"Task completed: $TOOL_INPUT_prompt\" 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/checkpoint-manager.sh agent-checkpoint \"Task completed: $TOOL_INPUT_prompt\" 2>/dev/null || true"
           }
         ]
       }
@@ -193,17 +193,17 @@
           {
             "type": "command",
             "timeout": 3000,
-            "command": ".claude/helpers/daemon-manager.sh start 3 5 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/daemon-manager.sh start 3 5 2>/dev/null || true"
           },
           {
             "type": "command",
             "timeout": 8000,
-            "command": ".claude/helpers/learning-hooks.sh session-start 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/learning-hooks.sh session-start 2>/dev/null || true"
           },
           {
             "type": "command",
             "timeout": 3000,
-            "command": ".claude/helpers/swarm-hooks.sh agents 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/swarm-hooks.sh agents 2>/dev/null || true"
           },
           {
             "type": "command",
@@ -219,7 +219,7 @@
           {
             "type": "command",
             "timeout": 10000,
-            "command": ".claude/helpers/learning-hooks.sh session-end 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/learning-hooks.sh session-end 2>/dev/null || true"
           },
           {
             "type": "command",
@@ -229,17 +229,17 @@
           {
             "type": "command",
             "timeout": 6000,
-            "command": ".claude/helpers/checkpoint-manager.sh session-end \"V3 development session completed\" 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/checkpoint-manager.sh session-end \"V3 development session completed\" 2>/dev/null || true"
           },
           {
             "type": "command",
             "timeout": 4000,
-            "command": ".claude/helpers/update-v3-progress.sh status > .claude-flow/last-session-status.txt 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/update-v3-progress.sh status > .claude-flow/last-session-status.txt 2>/dev/null || true"
           },
           {
             "type": "command",
             "timeout": 2000,
-            "command": ".claude/helpers/daemon-manager.sh stop 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/daemon-manager.sh stop 2>/dev/null || true"
           }
         ]
       }
@@ -262,7 +262,7 @@
           {
             "type": "command",
             "timeout": 8000,
-            "command": ".claude/helpers/learning-hooks.sh session-end 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/learning-hooks.sh session-end 2>/dev/null || true"
           },
           {
             "type": "command",
@@ -285,13 +285,13 @@
     "directory": ".claude/helpers",
     "enabled": true,
     "scripts": {
-      "v3ProgressUpdater": ".claude/helpers/update-v3-progress.sh",
-      "v3ConfigValidator": ".claude/helpers/validate-v3-config.sh",
-      "v3QuickStatus": ".claude/helpers/v3-quick-status.sh",
-      "v3CheckpointManager": ".claude/helpers/checkpoint-manager.sh",
-      "v3SwarmMonitor": ".claude/helpers/swarm-monitor.sh",
-      "v3SwarmHooks": ".claude/helpers/swarm-hooks.sh",
-      "v3Master": ".claude/helpers/v3.sh"
+      "v3ProgressUpdater": "/workspaces/claude-flow/.claude/helpers/update-v3-progress.sh",
+      "v3ConfigValidator": "/workspaces/claude-flow/.claude/helpers/validate-v3-config.sh",
+      "v3QuickStatus": "/workspaces/claude-flow/.claude/helpers/v3-quick-status.sh",
+      "v3CheckpointManager": "/workspaces/claude-flow/.claude/helpers/checkpoint-manager.sh",
+      "v3SwarmMonitor": "/workspaces/claude-flow/.claude/helpers/swarm-monitor.sh",
+      "v3SwarmHooks": "/workspaces/claude-flow/.claude/helpers/swarm-hooks.sh",
+      "v3Master": "/workspaces/claude-flow/.claude/helpers/v3.sh"
     }
   },
   "v3Configuration": {
