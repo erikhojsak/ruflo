@@ -743,6 +743,9 @@ export class AgenticFlowAgent extends EventEmitter implements IAgent {
    * Override this method in subclasses for specific agent behavior
    */
   protected async localExecuteTask(task: Task): Promise<unknown> {
+    // Simulate minimal processing time to ensure measurable duration
+    await this.delay(1);
+
     // This is a basic implementation that should be overridden by subclasses
     // For now, just return the task input as output
     return {
