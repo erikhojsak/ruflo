@@ -24,7 +24,7 @@ async function measureColdStart(command: string, args: string[]): Promise<number
 
     const child: ChildProcess = spawn(command, args, {
       stdio: 'pipe',
-      shell: true,
+      shell: false, // Security: Avoid shell injection vulnerabilities
     });
 
     let output = '';
