@@ -172,27 +172,35 @@ fi
 CONTEXT_PCT=0
 CONTEXT_COLOR="${DIM}"
 if [ "$CLAUDE_INPUT" != "{}" ]; then
-  CURRENT_USAGE=$(echo "$CLAUDE_INPUT" | jq '.context_window.current_usage // null' 2>/dev/null)
+  # Try to get remaining percentage directly from Claude Code
+  CONTEXT_REMAINING=$(echo "$CLAUDE_INPUT" | jq '.context_window.remaining_percentage // null' 2>/dev/null)
 
-  if [ "$CURRENT_USAGE" != "null" ] && [ "$CURRENT_USAGE" != "" ]; then
-    CONTEXT_SIZE=$(echo "$CLAUDE_INPUT" | jq '.context_window.context_window_size // 200000' 2>/dev/null)
-    INPUT_TOKENS=$(echo "$CURRENT_USAGE" | jq '.input_tokens // 0' 2>/dev/null)
-    CACHE_CREATE=$(echo "$CURRENT_USAGE" | jq '.cache_creation_input_tokens // 0' 2>/dev/null)
-    CACHE_READ=$(echo "$CURRENT_USAGE" | jq '.cache_read_input_tokens // 0' 2>/dev/null)
+  if [ "$CONTEXT_REMAINING" != "null" ] && [ -n "$CONTEXT_REMAINING" ]; then
+    # If we have remaining %, convert to used %
+    CONTEXT_PCT=$((100 - CONTEXT_REMAINING))
+  else
+    # Fallback: calculate from token counts
+    CURRENT_USAGE=$(echo "$CLAUDE_INPUT" | jq '.context_window.current_usage // null' 2>/dev/null)
+    if [ "$CURRENT_USAGE" != "null" ] && [ "$CURRENT_USAGE" != "" ]; then
+      CONTEXT_SIZE=$(echo "$CLAUDE_INPUT" | jq '.context_window.context_window_size // 200000' 2>/dev/null)
+      INPUT_TOKENS=$(echo "$CURRENT_USAGE" | jq '.input_tokens // 0' 2>/dev/null)
+      CACHE_CREATE=$(echo "$CURRENT_USAGE" | jq '.cache_creation_input_tokens // 0' 2>/dev/null)
+      CACHE_READ=$(echo "$CURRENT_USAGE" | jq '.cache_read_input_tokens // 0' 2>/dev/null)
 
-    TOTAL_TOKENS=$((INPUT_TOKENS + CACHE_CREATE + CACHE_READ))
-    if [ "$CONTEXT_SIZE" -gt 0 ]; then
-      CONTEXT_PCT=$((TOTAL_TOKENS * 100 / CONTEXT_SIZE))
+      TOTAL_TOKENS=$((INPUT_TOKENS + CACHE_CREATE + CACHE_READ))
+      if [ "$CONTEXT_SIZE" -gt 0 ]; then
+        CONTEXT_PCT=$((TOTAL_TOKENS * 100 / CONTEXT_SIZE))
+      fi
     fi
+  fi
 
-    # Color based on usage
-    if [ "$CONTEXT_PCT" -lt 50 ]; then
-      CONTEXT_COLOR="${BRIGHT_GREEN}"
-    elif [ "$CONTEXT_PCT" -lt 75 ]; then
-      CONTEXT_COLOR="${BRIGHT_YELLOW}"
-    else
-      CONTEXT_COLOR="${BRIGHT_RED}"
-    fi
+  # Color based on usage (higher = worse)
+  if [ "$CONTEXT_PCT" -lt 50 ]; then
+    CONTEXT_COLOR="${BRIGHT_GREEN}"
+  elif [ "$CONTEXT_PCT" -lt 75 ]; then
+    CONTEXT_COLOR="${BRIGHT_YELLOW}"
+  else
+    CONTEXT_COLOR="${BRIGHT_RED}"
   fi
 fi
 
