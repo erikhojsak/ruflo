@@ -229,7 +229,7 @@
           {
             "type": "command",
             "timeout": 6000,
-            "command": ".claude/helpers/checkpoint-manager.sh session-end \"V3 development session completed\" 2>/dev/null || true"
+            "command": "/workspaces/claude-flow/.claude/helpers/checkpoint-manager.sh session-end \"V3 development session completed\" 2>/dev/null || true"
           },
           {
             "type": "command",
