@@ -280,11 +280,11 @@ const diffCommand: Command = {
             { key: 'additions', header: '+', width: 8, align: 'right', format: (v) => output.success(`+${v}`) },
             { key: 'deletions', header: '-', width: 8, align: 'right', format: (v) => output.error(`-${v}`) },
           ],
-          data: result.files.slice(0, 20),
+          data: files.slice(0, 20),
         });
 
-        if (result.files.length > 20) {
-          output.writeln(output.dim(`  ... and ${result.files.length - 20} more files`));
+        if (files.length > 20) {
+          output.writeln(output.dim(`  ... and ${files.length - 20} more files`));
         }
       }
 
