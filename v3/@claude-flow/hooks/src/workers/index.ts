@@ -1889,20 +1889,20 @@ export function createV3ProgressWorker(projectRoot: string): WorkerHandler {
       hooksSubcommands = 20; // Known count
     }
 
-    // Count @claude-flow packages
+    // Count @claude-flow packages (excluding hidden directories)
     let packages = 0;
     const packageDirs: string[] = [];
     try {
       const packagesPath = path.join(v3Path, '@claude-flow');
       const dirs = await fs.readdir(packagesPath, { withFileTypes: true });
       for (const dir of dirs) {
-        if (dir.isDirectory()) {
+        if (dir.isDirectory() && !dir.name.startsWith('.')) {
           packages++;
           packageDirs.push(dir.name);
         }
       }
     } catch {
-      packages = 16; // Known count
+      packages = 17; // Known count from audit
     }
 
     // Count DDD layers (domain/, application/ folders in packages)
