@@ -772,12 +772,35 @@ export const hooksTransfer: MCPTool = {
     const minConfidence = (params.minConfidence as number) || 0.7;
     const filter = params.filter as string;
 
+    // Try to load patterns from source project's memory store
+    const sourceMemoryPath = join(resolve(sourcePath), MEMORY_DIR, MEMORY_FILE);
+    let sourceStore: MemoryStore = { entries: {}, version: '3.0.0' };
+
+    try {
+      if (existsSync(sourceMemoryPath)) {
+        sourceStore = JSON.parse(readFileSync(sourceMemoryPath, 'utf-8'));
+      }
+    } catch {
+      // Fall back to empty store
+    }
+
+    const sourceEntries = Object.values(sourceStore.entries);
+
+    // Count patterns by type from source
     const byType: Record<string, number> = {
-      'file-patterns': 8,
-      'task-routing': 12,
-      'command-risk': 5,
-      'agent-success': 15,
+      'file-patterns': sourceEntries.filter(e => e.key.includes('file') || e.metadata?.type === 'file-pattern').length,
+      'task-routing': sourceEntries.filter(e => e.key.includes('routing') || e.metadata?.type === 'routing').length,
+      'command-risk': sourceEntries.filter(e => e.key.includes('command') || e.metadata?.type === 'command-risk').length,
+      'agent-success': sourceEntries.filter(e => e.key.includes('agent') || e.metadata?.type === 'agent-success').length,
     };
+
+    // If source has no patterns, provide demo data
+    if (Object.values(byType).every(v => v === 0)) {
+      byType['file-patterns'] = 8;
+      byType['task-routing'] = 12;
+      byType['command-risk'] = 5;
+      byType['agent-success'] = 15;
+    }
 
     if (filter) {
       Object.keys(byType).forEach(key => {
@@ -802,6 +825,7 @@ export const hooksTransfer: MCPTool = {
         avgConfidence: 0.82 + (minConfidence > 0.8 ? 0.1 : 0),
         avgAge: '3 days',
       },
+      dataSource: Object.values(sourceStore.entries).length > 0 ? 'source-project' : 'demo-data',
     };
   },
 };
