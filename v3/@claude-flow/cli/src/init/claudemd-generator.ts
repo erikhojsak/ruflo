@@ -406,7 +406,7 @@ npx @claude-flow/cli@latest doctor --fix
 
 ---
 
-Remember: **Claude Flow coordinates, Claude Code creates!**
+Remember: **Claude Flow CLI coordinates, Claude Code Task tool creates!**
 
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
