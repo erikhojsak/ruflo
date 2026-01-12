@@ -3586,14 +3586,14 @@ const tokenOptimizeCommand: Command = {
       if (query && reasoningBank) {
         output.writeln();
         output.printInfo(`Retrieving compact context for: "${query}"`);
-        const memories = await reasoningBank.retrieveMemories!(query, { limit: 5, threshold: 0.7 });
-        const compactPrompt = reasoningBank.formatMemoriesForPrompt!(memories);
+        const memories = await reasoningBank.retrieveMemories(query, { k: 5 });
+        const compactPrompt = reasoningBank.formatMemoriesForPrompt ? reasoningBank.formatMemoriesForPrompt(memories) : '';
         const baseline = 1000;
-        const used = Math.ceil(compactPrompt.length / 4);
+        const used = Math.ceil((compactPrompt?.length || 0) / 4);
         const tokensSaved = Math.max(0, baseline - used);
         stats.totalTokensSaved += tokensSaved;
-        stats.memoriesRetrieved += (memories as unknown[]).length;
-        output.writeln(`  Memories found: ${(memories as unknown[]).length}`);
+        stats.memoriesRetrieved += Array.isArray(memories) ? memories.length : 0;
+        output.writeln(`  Memories found: ${Array.isArray(memories) ? memories.length : 0}`);
         output.writeln(`  Tokens saved: ${output.success(String(tokensSaved))}`);
         if (compactPrompt) {
           output.writeln(`  Compact prompt (${compactPrompt.length} chars)`);
