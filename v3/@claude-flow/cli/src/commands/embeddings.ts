@@ -302,7 +302,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return mag === 0 ? 0 : dot / mag;
 }
 
-// Compare subcommand
+// Compare subcommand - REAL similarity computation
 const compareCommand: Command = {
   name: 'compare',
   description: 'Compare similarity between texts',
@@ -325,29 +325,76 @@ const compareCommand: Command = {
     }
 
     output.writeln();
-    output.writeln(output.bold('Text Similarity'));
+    output.writeln(output.bold('Text Similarity (Real)'));
     output.writeln(output.dim('─'.repeat(50)));
 
-    const spinner = output.createSpinner({ text: 'Computing similarity...', spinner: 'dots' });
+    const spinner = output.createSpinner({ text: 'Generating embeddings...', spinner: 'dots' });
     spinner.start();
-    await new Promise(r => setTimeout(r, 300));
-    spinner.succeed('Comparison complete');
 
-    // Simulated similarity
-    const similarity = 0.87;
+    try {
+      const { generateEmbedding } = await import('../memory/memory-initializer.js');
 
-    output.writeln();
-    output.printBox([
-      `Text 1: "${text1.substring(0, 30)}${text1.length > 30 ? '...' : ''}"`,
-      `Text 2: "${text2.substring(0, 30)}${text2.length > 30 ? '...' : ''}"`,
-      ``,
-      `Metric: ${metric}`,
-      `Similarity: ${output.success(similarity.toFixed(4))}`,
-      ``,
-      `Interpretation: ${similarity > 0.8 ? 'Highly similar' : similarity > 0.5 ? 'Moderately similar' : 'Dissimilar'}`,
-    ].join('\n'), 'Result');
+      // Generate real embeddings for both texts
+      const startTime = Date.now();
+      const [emb1, emb2] = await Promise.all([
+        generateEmbedding(text1),
+        generateEmbedding(text2),
+      ]);
+      const embedTime = Date.now() - startTime;
 
-    return { success: true };
+      spinner.setText('Computing similarity...');
+
+      // Compute real similarity based on metric
+      let similarity: number;
+
+      switch (metric) {
+        case 'euclidean': {
+          // Euclidean distance (converted to similarity: 1 / (1 + distance))
+          let sumSq = 0;
+          for (let i = 0; i < emb1.embedding.length; i++) {
+            const diff = emb1.embedding[i] - emb2.embedding[i];
+            sumSq += diff * diff;
+          }
+          const distance = Math.sqrt(sumSq);
+          similarity = 1 / (1 + distance);
+          break;
+        }
+        case 'dot': {
+          // Dot product
+          let dot = 0;
+          for (let i = 0; i < emb1.embedding.length; i++) {
+            dot += emb1.embedding[i] * emb2.embedding[i];
+          }
+          similarity = dot;
+          break;
+        }
+        case 'cosine':
+        default: {
+          // Cosine similarity
+          similarity = cosineSimilarity(emb1.embedding, emb2.embedding);
+        }
+      }
+
+      spinner.succeed(`Comparison complete (${embedTime}ms)`);
+
+      output.writeln();
+      output.printBox([
+        `Text 1: "${text1.substring(0, 30)}${text1.length > 30 ? '...' : ''}"`,
+        `Text 2: "${text2.substring(0, 30)}${text2.length > 30 ? '...' : ''}"`,
+        ``,
+        `Model: ${emb1.model} (${emb1.dimensions}-dim)`,
+        `Metric: ${metric}`,
+        `Similarity: ${similarity > 0.8 ? output.success(similarity.toFixed(4)) : similarity > 0.5 ? output.warning(similarity.toFixed(4)) : output.dim(similarity.toFixed(4))}`,
+        ``,
+        `Interpretation: ${similarity > 0.8 ? 'Highly similar' : similarity > 0.5 ? 'Moderately similar' : 'Dissimilar'}`,
+      ].join('\n'), 'Result');
+
+      return { success: true, data: { similarity, metric, embedTime } };
+    } catch (error) {
+      spinner.fail('Comparison failed');
+      output.printError(error instanceof Error ? error.message : String(error));
+      return { success: false, exitCode: 1 };
+    }
   },
 };
 
