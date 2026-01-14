@@ -108,11 +108,12 @@ export class FlashAttention {
 
     const numQueries = queries.length;
     const numKeys = keys.length;
-    const dimensions = queries[0]?.length ?? this.config.dimensions;
 
-    // Use block attention for large inputs, naive for small
+    // Use CPU-optimized path for all sizes when enabled
     let output: Float32Array[];
-    if (numQueries * numKeys > 1024) {
+    if (this.config.useCPUOptimizations) {
+      output = this.cpuOptimizedAttention(queries, keys, values);
+    } else if (numQueries * numKeys > 1024) {
       output = this.blockAttention(queries, keys, values, this.config.blockSize);
     } else {
       output = this.naiveAttention(queries, keys, values);
@@ -124,6 +125,133 @@ export class FlashAttention {
       output,
       computeTimeMs,
     };
+  }
+
+  /**
+   * CPU-optimized attention with fused operations and minimal allocations
+   *
+   * Key optimizations:
+   * - Single pass score computation + softmax + weighted sum
+   * - Pre-allocated buffers to avoid GC pressure
+   * - Cache-friendly row-major traversal
+   * - 8x loop unrolling for dot products
+   * - Float64 accumulator for precision
+   */
+  private cpuOptimizedAttention(
+    Q: Float32Array[],
+    K: Float32Array[],
+    V: Float32Array[],
+  ): Float32Array[] {
+    const numQ = Q.length;
+    const numK = K.length;
+    const dim = Q[0]?.length ?? this.config.dimensions;
+    const scale = 1.0 / (Math.sqrt(dim) * this.config.temperature);
+
+    // Ensure buffers are allocated
+    if (!this.scoreBuffer || this.scoreBuffer.length < numK) {
+      this.scoreBuffer = new Float32Array(numK);
+    }
+    if (!this.expBuffer || this.expBuffer.length < numK) {
+      this.expBuffer = new Float32Array(numK);
+    }
+    if (!this.accumBuffer || this.accumBuffer.length < dim) {
+      this.accumBuffer = new Float64Array(dim);
+    }
+
+    const scores = this.scoreBuffer;
+    const exps = this.expBuffer;
+    const accum = this.accumBuffer;
+
+    // Pre-allocate output
+    const output: Float32Array[] = new Array(numQ);
+    for (let i = 0; i < numQ; i++) {
+      output[i] = new Float32Array(dim);
+    }
+
+    // Process each query
+    for (let qi = 0; qi < numQ; qi++) {
+      const query = Q[qi];
+
+      // Step 1: Compute all scores for this query (fused with max finding)
+      let maxScore = -Infinity;
+      for (let ki = 0; ki < numK; ki++) {
+        const s = this.fastDotProduct(query, K[ki], dim) * scale;
+        scores[ki] = s;
+        if (s > maxScore) maxScore = s;
+      }
+
+      // Step 2: Compute exp and sum (fused)
+      let sumExp = 0;
+      for (let ki = 0; ki < numK; ki++) {
+        const e = Math.exp(scores[ki] - maxScore);
+        exps[ki] = e;
+        sumExp += e;
+      }
+
+      // Step 3: Normalize and compute weighted sum (fused)
+      // Reset accumulator
+      for (let d = 0; d < dim; d++) {
+        accum[d] = 0;
+      }
+
+      const invSum = 1.0 / sumExp;
+      for (let ki = 0; ki < numK; ki++) {
+        const weight = exps[ki] * invSum;
+        const value = V[ki];
+
+        // Unrolled accumulation (8x)
+        let d = 0;
+        for (; d <= dim - 8; d += 8) {
+          accum[d] += weight * value[d];
+          accum[d + 1] += weight * value[d + 1];
+          accum[d + 2] += weight * value[d + 2];
+          accum[d + 3] += weight * value[d + 3];
+          accum[d + 4] += weight * value[d + 4];
+          accum[d + 5] += weight * value[d + 5];
+          accum[d + 6] += weight * value[d + 6];
+          accum[d + 7] += weight * value[d + 7];
+        }
+        // Handle remainder
+        for (; d < dim; d++) {
+          accum[d] += weight * value[d];
+        }
+      }
+
+      // Copy to output (Float64 -> Float32)
+      const out = output[qi];
+      for (let d = 0; d < dim; d++) {
+        out[d] = accum[d];
+      }
+    }
+
+    return output;
+  }
+
+  /**
+   * Fast dot product with 8x unrolling
+   */
+  private fastDotProduct(a: Float32Array, b: Float32Array, len: number): number {
+    let sum = 0;
+    let i = 0;
+
+    // 8x unroll
+    for (; i <= len - 8; i += 8) {
+      sum += a[i] * b[i] +
+             a[i + 1] * b[i + 1] +
+             a[i + 2] * b[i + 2] +
+             a[i + 3] * b[i + 3] +
+             a[i + 4] * b[i + 4] +
+             a[i + 5] * b[i + 5] +
+             a[i + 6] * b[i + 6] +
+             a[i + 7] * b[i + 7];
+    }
+
+    // Remainder
+    for (; i < len; i++) {
+      sum += a[i] * b[i];
+    }
+
+    return sum;
   }
 
   /**
