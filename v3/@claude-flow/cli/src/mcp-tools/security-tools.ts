@@ -17,8 +17,11 @@ import { createRequire } from 'module';
 // Create require for CJS-style imports (allows cache clearing)
 const require = createRequire(import.meta.url);
 
+// AIDefence instance type
+type AIDefenceInstance = ReturnType<typeof import('@claude-flow/aidefence').createAIDefence>;
+
 // Lazy-loaded AIDefence instance
-let aidefenceInstance: ReturnType<typeof import('@claude-flow/aidefence').createAIDefence> | null = null;
+let aidefenceInstance: AIDefenceInstance | null = null;
 
 /**
  * Clear require cache for a module (allows re-import after install)
@@ -32,39 +35,43 @@ function clearRequireCache(moduleName: string): void {
   }
 }
 
-async function getAIDefence() {
-  if (!aidefenceInstance) {
-    const packageName = '@claude-flow/aidefence';
-
-    // First attempt - try to load
-    try {
-      const aidefence = require(packageName);
-      aidefenceInstance = aidefence.createAIDefence({ enableLearning: true });
-      return aidefenceInstance;
-    } catch {
-      // Package not found
-    }
-
-    // Second attempt - auto-install and retry
-    console.error(`[claude-flow] ${packageName} not found, attempting auto-install...`);
-    const installed = await autoInstallPackage(packageName);
-
-    if (installed) {
-      // Clear cache and retry
-      clearRequireCache(packageName);
-      try {
-        const aidefence = require(packageName);
-        aidefenceInstance = aidefence.createAIDefence({ enableLearning: true });
-        console.error(`[claude-flow] ${packageName} loaded successfully after install`);
-        return aidefenceInstance;
-      } catch (retryError) {
-        throw new Error(`AIDefence installed but failed to load: ${retryError}. Try restarting the MCP server.`);
-      }
-    } else {
-      throw new Error('AIDefence package not available. Install with: npm install @claude-flow/aidefence');
-    }
+/**
+ * Get or create AIDefence instance (throws if unavailable)
+ */
+async function getAIDefence(): Promise<AIDefenceInstance> {
+  if (aidefenceInstance) {
+    return aidefenceInstance;
   }
-  return aidefenceInstance;
+
+  const packageName = '@claude-flow/aidefence';
+
+  // First attempt - try to load
+  try {
+    const aidefence = require(packageName);
+    aidefenceInstance = aidefence.createAIDefence({ enableLearning: true });
+    return aidefenceInstance;
+  } catch {
+    // Package not found, continue to auto-install
+  }
+
+  // Second attempt - auto-install and retry
+  console.error(`[claude-flow] ${packageName} not found, attempting auto-install...`);
+  const installed = await autoInstallPackage(packageName);
+
+  if (!installed) {
+    throw new Error('AIDefence package not available. Install with: npm install @claude-flow/aidefence');
+  }
+
+  // Clear cache and retry
+  clearRequireCache(packageName);
+  try {
+    const aidefence = require(packageName);
+    aidefenceInstance = aidefence.createAIDefence({ enableLearning: true });
+    console.error(`[claude-flow] ${packageName} loaded successfully after install`);
+    return aidefenceInstance;
+  } catch (retryError) {
+    throw new Error(`AIDefence installed but failed to load: ${retryError}. Try restarting the MCP server.`);
+  }
 }
 
 /**
