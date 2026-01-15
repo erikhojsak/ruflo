@@ -19,117 +19,28 @@
 
 Claude-Flow is a comprehensive AI agent orchestration framework that transforms Claude Code into a powerful multi-agent development platform. It enables teams to deploy, coordinate, and optimize specialized AI agents working together on complex software engineering tasks.
 
-### Architecture Flow
+### Architecture
 
-```mermaid
-flowchart TB
-    subgraph User["User Layer"]
-        CC[Claude Code]
-        CLI[CLI Commands]
-    end
-
-    subgraph Orchestration["Orchestration Layer"]
-        MCP[MCP Server<br/>27+ Tools]
-        Router[Intelligent Router<br/>3-Tier Model Selection]
-        Hooks[Self-Learning Hooks<br/>27 Lifecycle Events]
-    end
-
-    subgraph Coordination["Coordination Layer"]
-        Queen[Queen Coordinator]
-        Swarm[Swarm Topologies<br/>Mesh • Hierarchical • Ring • Star]
-        Consensus[Consensus Protocols<br/>Raft • Byzantine • Gossip • CRDT]
-    end
-
-    subgraph Agents["Agent Layer (54+)"]
-        Core[Core Agents<br/>coder • reviewer • tester]
-        Specialized[Specialized Agents<br/>security • performance • ml]
-        GitHub[GitHub Agents<br/>pr-manager • issue-tracker]
-    end
-
-    subgraph Intelligence["Intelligence Layer"]
-        SONA[SONA Neural<br/>Self-Optimizing Architecture]
-        MoE[Mixture of Experts<br/>8 Specialized Experts]
-        ReasoningBank[ReasoningBank<br/>Pattern Learning]
-    end
-
-    subgraph Memory["Memory Layer"]
-        HNSW[HNSW Index<br/>150x-12,500x Faster]
-        AgentDB[AgentDB<br/>Vector Storage]
-        Cache[LRU Cache<br/>Cross-Session]
-    end
-
-    subgraph Providers["Provider Layer"]
-        Anthropic[Anthropic<br/>Claude 3.5/4]
-        OpenAI[OpenAI<br/>GPT-4o/o1]
-        Google[Google<br/>Gemini 2.0]
-        Local[Local<br/>Ollama/Llama]
-    end
-
-    CC --> MCP
-    CLI --> MCP
-    MCP --> Router
-    Router --> Hooks
-    Hooks --> Queen
-    Queen --> Swarm
-    Swarm --> Consensus
-    Consensus --> Core
-    Consensus --> Specialized
-    Consensus --> GitHub
-    Core --> SONA
-    Specialized --> MoE
-    GitHub --> ReasoningBank
-    SONA --> HNSW
-    MoE --> AgentDB
-    ReasoningBank --> Cache
-    HNSW --> Anthropic
-    AgentDB --> OpenAI
-    Cache --> Google
-    Cache --> Local
-
-    style User fill:#e1f5fe
-    style Orchestration fill:#f3e5f5
-    style Coordination fill:#fff3e0
-    style Agents fill:#e8f5e9
-    style Intelligence fill:#fce4ec
-    style Memory fill:#e0f2f1
-    style Providers fill:#fff8e1
+```
+User → MCP Server → Router → Swarm → Agents → Memory → LLM Providers
 ```
 
-### Data Flow
+**Layers:**
+- **User**: Claude Code, CLI
+- **Orchestration**: MCP Server (27+ tools), Router, Hooks
+- **Coordination**: Queen, Swarm (mesh/hierarchical/ring/star), Consensus (raft/byzantine/gossip)
+- **Agents**: 54+ types (coder, reviewer, tester, security, performance, github)
+- **Intelligence**: SONA neural learning, Mixture of Experts, ReasoningBank
+- **Memory**: HNSW index (150x faster), AgentDB, LRU cache
+- **Providers**: Anthropic, OpenAI, Google, Local (Ollama)
 
-```mermaid
-sequenceDiagram
-    participant U as User/Claude Code
-    participant R as Router (3-Tier)
-    participant S as Swarm
-    participant A as Agents
-    participant M as Memory (HNSW)
-    participant L as LLM Provider
+### Task Routing
 
-    U->>R: Task Request
-    R->>R: Complexity Analysis
-    alt Simple Transform
-        R->>U: Agent Booster (WASM) <1ms
-    else Medium Complexity
-        R->>S: Route to Haiku/Sonnet
-        S->>A: Spawn Agents
-        A->>M: Query Patterns
-        M->>A: Similar Patterns (150x faster)
-        A->>L: LLM Request
-        L->>A: Response
-        A->>M: Store New Pattern
-        A->>S: Result
-        S->>U: Synthesized Output
-    else High Complexity
-        R->>S: Route to Opus
-        S->>A: Spawn Specialized Swarm
-        A->>A: Byzantine Consensus
-        A->>M: Deep Pattern Search
-        A->>L: Multi-turn Reasoning
-        A->>S: Coordinated Result
-        S->>U: Final Output
-    end
-```
+| Complexity | Handler | Speed |
+|------------|---------|-------|
+| Simple | Agent Booster (WASM) | <1ms |
+| Medium | Haiku/Sonnet | ~500ms |
+| Complex | Opus + Swarm | 2-5s |
 
 ### Claude Code: With vs Without Claude-Flow
 
