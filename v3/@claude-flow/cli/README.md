@@ -500,8 +500,11 @@ npm install -g claude-flow@alpha --omit=optional
 ### Basic Usage
 
 ```bash
-# Initialize project
+# Initialize project (standard template)
 npx claude-flow@alpha init
+
+# Initialize with wizard (interactive template selection)
+npx claude-flow@alpha init --wizard
 
 # Start MCP server for Claude Code integration
 npx claude-flow@alpha mcp start
@@ -512,6 +515,41 @@ npx claude-flow@alpha --agent coder --task "Implement user authentication"
 # List available agents
 npx claude-flow@alpha --list
 ```
+
+<details>
+<summary><b>CLAUDE.md Init Templates</b></summary>
+
+The `init` command generates a CLAUDE.md file that configures Claude Code behavior. Choose a template based on your use case:
+
+| Template | Score | Lines | Use Case |
+|----------|-------|-------|----------|
+| `minimal` | 93/100 (A) | ~140 | Quick start — behavioral rules, anti-drift, CLI reference |
+| `standard` | 93/100 (A) | ~190 | **Recommended** — swarm orchestration, agents, memory commands |
+| `full` | 91/100 (A) | ~295 | Everything — hooks, learning protocol, intelligence system |
+| `security` | 93/100 (A) | ~205 | Security-focused — scanning, audit protocols, CVE checks |
+| `performance` | 95/100 (A) | ~225 | Performance-focused — benchmarking, profiling, optimization |
+| `solo` | 93/100 (A) | ~145 | Solo developer — no swarm overhead, simple agent usage |
+
+All templates are analyzer-validated with **100% enforceability** and **A-grade** governance scores.
+
+**Template selection:**
+- Interactive: `npx claude-flow@alpha init --wizard` (prompts for template choice)
+- Programmatic: Set `runtime.claudeMdTemplate` in your init options
+- Default: `standard` template when components include agents/commands, `minimal` otherwise
+
+**Governance validation:**
+```bash
+# Analyze your CLAUDE.md quality and enforceability
+npx claude-flow@alpha guidance analyze
+
+# Optimize for higher score
+npx claude-flow@alpha guidance optimize --apply
+
+# Run A/B comparison test
+npx claude-flow@alpha guidance ab-test --config-a original.md --config-b optimized.md
+```
+
+</details>
 
 ### Upgrading
 
