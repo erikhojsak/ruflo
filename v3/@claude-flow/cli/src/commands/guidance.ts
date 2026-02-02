@@ -70,7 +70,7 @@ const compileCommand: Command = {
           const risk = rule.riskClass === 'critical' ? output.error(rule.riskClass) :
             rule.riskClass === 'high' ? output.warning(rule.riskClass) :
               output.dim(rule.riskClass);
-          output.writeln(`  ${output.bold(rule.id)} [${risk}] ${rule.text.slice(0, 60)}${rule.text.length > 60 ? '...' : ''}`);
+          output.writeln(`  ${output.bold(rule.id)} [${risk}] ${rule.source.slice(0, 60)}${rule.source.length > 60 ? '...' : ''}`);
         }
         if (bundle.manifest.rules.length > 10) {
           output.writeln(output.dim(`  ... and ${bundle.manifest.rules.length - 10} more`));
