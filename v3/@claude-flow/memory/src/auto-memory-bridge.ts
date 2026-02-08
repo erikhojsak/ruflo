@@ -432,6 +432,11 @@ export class AutoMemoryBridge extends EventEmitter {
       await this.backend.bulkInsert(batch);
     }
 
+    // ADR-049: Build knowledge graph from imported entries
+    if (this.memoryGraph && batch.length > 0) {
+      await this.memoryGraph.buildFromBackend(this.backend, 'auto-memory');
+    }
+
     const result: ImportResult = {
       imported,
       skipped,
