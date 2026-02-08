@@ -24,6 +24,8 @@ import {
   type MemoryEntryInput,
   type MemoryQuery,
 } from './types.js';
+import { LearningBridge, type LearningBridgeConfig } from './learning-bridge.js';
+import { MemoryGraph, type MemoryGraphConfig } from './memory-graph.js';
 
 // ===== Types =====
 
