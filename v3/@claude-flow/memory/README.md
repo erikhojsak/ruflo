@@ -332,16 +332,278 @@ import type {
 } from '@claude-flow/memory';
 ```
 
+## Self-Learning Bridge (ADR-049)
+
+Connects insights to the `@claude-flow/neural` learning pipeline. When neural is unavailable, all operations degrade to no-ops.
+
+### Quick Start
+
+```typescript
+import { AutoMemoryBridge, LearningBridge } from '@claude-flow/memory';
+
+const bridge = new AutoMemoryBridge(backend, {
+  workingDir: '/workspaces/my-project',
+  learning: {
+    sonaMode: 'balanced',
+    confidenceDecayRate: 0.005,   // Per-hour decay
+    accessBoostAmount: 0.03,      // Boost per access
+    consolidationThreshold: 10,   // Min insights before consolidation
+  },
+});
+
+// Insights now trigger learning trajectories automatically
+await bridge.recordInsight({
+  category: 'debugging',
+  summary: 'Connection pool exhaustion on high load',
+  source: 'agent:tester',
+  confidence: 0.9,
+});
+
+// Consolidation runs JUDGE/DISTILL/CONSOLIDATE pipeline
+await bridge.syncToAutoMemory(); // Calls consolidate() first
+```
+
+### Standalone Usage
+
+```typescript
+import { LearningBridge } from '@claude-flow/memory';
+
+const lb = new LearningBridge(backend, {
+  // Optional: inject neural loader for custom setups
+  neuralLoader: async () => {
+    const { NeuralLearningSystem } = await import('@claude-flow/neural');
+    return new NeuralLearningSystem();
+  },
+});
+
+// Boost confidence when insight is accessed
+await lb.onInsightAccessed('entry-123'); // +0.03 confidence
+
+// Apply time-based decay
+const decayed = await lb.decayConfidences('default'); // -0.005/hour
+
+// Find similar patterns via ReasoningBank
+const patterns = await lb.findSimilarPatterns('connection pooling');
+
+// Get learning statistics
+const stats = lb.getStats();
+// { totalTrajectories, activeTrajectories, completedTrajectories,
+//   totalConsolidations, accessBoosts, ... }
+```
+
+### Confidence Lifecycle
+
+| Event | Effect | Range |
+|-------|--------|-------|
+| Insight recorded | Initial confidence from source | 0.1 - 1.0 |
+| Insight accessed | +0.03 per access | Capped at 1.0 |
+| Time decay | -0.005 per hour since last access | Floored at 0.1 |
+| Consolidation | Neural pipeline may adjust | 0.1 - 1.0 |
+
+## Knowledge Graph (ADR-049)
+
+Pure TypeScript knowledge graph with PageRank and community detection. No external graph libraries required.
+
+### Quick Start
+
+```typescript
+import { AutoMemoryBridge, MemoryGraph } from '@claude-flow/memory';
+
+const bridge = new AutoMemoryBridge(backend, {
+  workingDir: '/workspaces/my-project',
+  graph: {
+    similarityThreshold: 0.8,
+    pageRankDamping: 0.85,
+    maxNodes: 5000,
+  },
+});
+
+// Graph builds automatically on import
+await bridge.importFromAutoMemory();
+
+// Curation uses PageRank to prioritize influential insights
+await bridge.curateIndex();
+```
+
+### Standalone Usage
+
+```typescript
+import { MemoryGraph } from '@claude-flow/memory';
+
+const graph = new MemoryGraph({
+  pageRankDamping: 0.85,
+  pageRankIterations: 50,
+  pageRankConvergence: 1e-6,
+  maxNodes: 5000,
+});
+
+// Build from backend entries
+await graph.buildFromBackend(backend, 'my-namespace');
+
+// Or build manually
+graph.addNode(entry);
+graph.addEdge('entry-1', 'entry-2', 'reference', 1.0);
+graph.addEdge('entry-1', 'entry-3', 'similar', 0.9);
+
+// Compute PageRank (power iteration)
+const ranks = graph.computePageRank();
+
+// Detect communities (label propagation)
+const communities = graph.detectCommunities();
+
+// Graph-aware ranking: blend vector score + PageRank
+const ranked = graph.rankWithGraph(searchResults, 0.7);
+// alpha=0.7 means 70% vector score + 30% PageRank
+
+// Get most influential insights for MEMORY.md
+const topNodes = graph.getTopNodes(20);
+
+// BFS traversal for related insights
+const neighbors = graph.getNeighbors('entry-1', 2); // depth=2
+```
+
+### Edge Types
+
+| Type | Source | Description |
+|------|--------|-------------|
+| `reference` | `MemoryEntry.references` | Explicit cross-references between entries |
+| `similar` | HNSW search | Auto-created when similarity > threshold |
+| `temporal` | Timestamps | Entries created in same time window |
+| `co-accessed` | Access patterns | Entries frequently accessed together |
+| `causal` | Learning pipeline | Cause-effect relationships |
+
+### Performance
+
+| Operation | Result | Target |
+|-----------|--------|--------|
+| Graph build (1k nodes) | 2.78 ms | <200 ms |
+| PageRank (1k nodes) | 12.21 ms | <100 ms |
+| Community detection (1k) | 19.62 ms | — |
+| `rankWithGraph(10)` | 0.006 ms | — |
+| `getTopNodes(20)` | 0.308 ms | — |
+| `getNeighbors(d=2)` | 0.005 ms | — |
+
+## Agent-Scoped Memory (ADR-049)
+
+Maps Claude Code's 3-scope agent memory directories for per-agent knowledge isolation and cross-agent transfer.
+
+### Quick Start
+
+```typescript
+import { createAgentBridge, transferKnowledge } from '@claude-flow/memory';
+
+// Create a bridge for a specific agent scope
+const agentBridge = createAgentBridge(backend, {
+  agentName: 'my-coder',
+  scope: 'project', // 'project' | 'local' | 'user'
+  workingDir: '/workspaces/my-project',
+});
+
+// Record insights scoped to this agent
+await agentBridge.recordInsight({
+  category: 'debugging',
+  summary: 'Use connection pooling for DB calls',
+  source: 'agent:my-coder',
+  confidence: 0.95,
+});
+
+// Transfer high-confidence insights between agents
+const result = await transferKnowledge(sourceBackend, targetBridge, {
+  sourceNamespace: 'learnings',
+  minConfidence: 0.8,   // Only transfer confident insights
+  maxEntries: 20,
+  categories: ['debugging', 'architecture'],
+});
+// { transferred: 15, skipped: 5 }
+```
+
+### Scope Paths
+
+| Scope | Directory | Use Case |
+|-------|-----------|----------|
+| `project` | `<gitRoot>/.claude/agent-memory/<agent>/` | Project-specific learnings |
+| `local` | `<gitRoot>/.claude/agent-memory-local/<agent>/` | Machine-local data |
+| `user` | `~/.claude/agent-memory/<agent>/` | Cross-project user knowledge |
+
+### Utilities
+
+```typescript
+import {
+  resolveAgentMemoryDir,  // Get scope directory path
+  createAgentBridge,       // Create scoped AutoMemoryBridge
+  transferKnowledge,       // Cross-agent knowledge sharing
+  listAgentScopes,         // Discover existing agent scopes
+} from '@claude-flow/memory';
+
+// Resolve path for an agent scope
+const dir = resolveAgentMemoryDir('my-agent', 'project');
+// → /workspaces/my-project/.claude/agent-memory/my-agent/
+
+// List all agent scopes in a directory
+const scopes = await listAgentScopes('/workspaces/my-project');
+// [{ agentName: 'coder', scope: 'project', path: '...' }, ...]
+```
+
+## Performance Benchmarks
+
+| Operation | V2 Performance | V3 Performance | Improvement |
+|-----------|---------------|----------------|-------------|
+| Vector Search | 150ms | <1ms | **150x** |
+| Bulk Insert | 500ms | 5ms | **100x** |
+| Memory Write | 50ms | <5ms | **10x** |
+| Cache Hit | 5ms | <0.1ms | **50x** |
+| Index Build | 10s | 800ms | **12.5x** |
+
+### ADR-049 Benchmarks
+
+| Operation | Actual | Target | Headroom |
+|-----------|--------|--------|----------|
+| Graph build (1k nodes) | 2.78 ms | <200 ms | **71.9x** |
+| PageRank (1k nodes) | 12.21 ms | <100 ms | **8.2x** |
+| Insight recording | 0.12 ms/each | <5 ms/each | **41.0x** |
+| Consolidation | 0.26 ms | <500 ms | **1,955x** |
+| Confidence decay (1k) | 0.23 ms | <50 ms | **215x** |
+| Knowledge transfer | 1.25 ms | <100 ms | **80.0x** |
+
+## TypeScript Types
+
+```typescript
+import type {
+  // Core
+  HNSWConfig, HNSWStats, SearchResult, MemoryEntry,
+  QuantizationConfig, DistanceMetric,
+
+  // Auto Memory Bridge (ADR-048)
+  AutoMemoryBridgeConfig, MemoryInsight, InsightCategory,
+  SyncDirection, SyncMode, PruneStrategy,
+  SyncResult, ImportResult,
+
+  // Learning Bridge (ADR-049)
+  LearningBridgeConfig, LearningStats,
+  ConsolidateResult, PatternMatch,
+
+  // Knowledge Graph (ADR-049)
+  MemoryGraphConfig, GraphNode, GraphEdge,
+  GraphStats, RankedResult, EdgeType,
+
+  // Agent Scope (ADR-049)
+  AgentMemoryScope, AgentScopedConfig,
+  TransferOptions, TransferResult,
+} from '@claude-flow/memory';
+```
+
 ## Dependencies
 
 - `agentdb` - Vector database engine
 - `better-sqlite3` - SQLite driver (native)
 - `sql.js` - SQLite driver (WASM fallback)
+- `@claude-flow/neural` - **Optional peer dependency** for self-learning (graceful fallback when unavailable)
 
 ## Related Packages
 
-- [@claude-flow/neural](../neural) - Neural learning integration
+- [@claude-flow/neural](../neural) - Neural learning integration (SONA, ReasoningBank, EWC++)
 - [@claude-flow/shared](../shared) - Shared types and utilities
+- [@claude-flow/hooks](../hooks) - Session lifecycle hooks for auto memory sync
 
 ## License
 
