@@ -634,7 +634,7 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
         updated_at INTEGER NOT NULL,
         expires_at INTEGER,
         version INTEGER NOT NULL,
-        references TEXT NOT NULL,
+        "references" TEXT NOT NULL,
         access_count INTEGER NOT NULL,
         last_accessed_at INTEGER NOT NULL
       );
