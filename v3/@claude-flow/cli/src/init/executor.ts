@@ -1520,6 +1520,25 @@ npx @claude-flow/cli@latest doctor --fix
 3. **DISTILL** - LoRA learning extraction
 4. **CONSOLIDATE** - EWC++ preservation
 
+### Self-Learning Memory (ADR-049)
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| **LearningBridge** | ${options.runtime.enableLearningBridge ? '✅ Enabled' : '⏸ Disabled'} | Connects insights to SONA/ReasoningBank neural pipeline |
+| **MemoryGraph** | ${options.runtime.enableMemoryGraph ? '✅ Enabled' : '⏸ Disabled'} | PageRank knowledge graph + community detection |
+| **AgentMemoryScope** | ${options.runtime.enableAgentScopes ? '✅ Enabled' : '⏸ Disabled'} | 3-scope agent memory (project/local/user) |
+
+**LearningBridge** - Insights trigger learning trajectories. Confidence evolves: +0.03 on access, -0.005/hour decay. Consolidation runs the JUDGE/DISTILL/CONSOLIDATE pipeline.
+
+**MemoryGraph** - Builds a knowledge graph from entry references. PageRank identifies influential insights. Communities group related knowledge. Graph-aware ranking blends vector + structural scores.
+
+**AgentMemoryScope** - Maps Claude Code 3-scope directories:
+- \`project\`: \`<gitRoot>/.claude/agent-memory/<agent>/\`
+- \`local\`: \`<gitRoot>/.claude/agent-memory-local/<agent>/\`
+- \`user\`: \`~/.claude/agent-memory/<agent>/\`
+
+High-confidence insights (>0.8) can transfer between agents.
+
 ### Memory Commands
 \`\`\`bash
 # Store pattern
