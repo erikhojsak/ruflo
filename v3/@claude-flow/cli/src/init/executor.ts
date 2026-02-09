@@ -1029,6 +1029,7 @@ async function writeHelpers(
     'router.js': generateAgentRouter(),
     'memory.js': generateMemoryHelper(),
     'hook-handler.cjs': generateHookHandler(),
+    'intelligence.cjs': generateIntelligenceStub(),
   };
 
   for (const [name, content] of Object.entries(helpers)) {
