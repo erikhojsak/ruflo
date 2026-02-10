@@ -2,19 +2,28 @@
 /**
  * Context Persistence Hook (ADR-051)
  *
- * Intercepts Claude Code's PreCompact and SessionStart lifecycle events
- * to persist conversation history in SQLite (primary) or JSON (fallback),
- * enabling "infinite context" across compaction boundaries.
+ * Intercepts Claude Code's PreCompact, SessionStart, and UserPromptSubmit
+ * lifecycle events to persist conversation history in SQLite (primary),
+ * RuVector PostgreSQL (optional), or JSON (fallback), enabling "infinite
+ * context" across compaction boundaries.
  *
  * Backend priority:
  *   1. better-sqlite3 (native, WAL mode, indexed queries, ACID transactions)
- *   2. AgentDB from @claude-flow/memory (HNSW vector search)
- *   3. JsonFileBackend (zero dependencies, always works)
+ *   2. RuVector PostgreSQL (if RUVECTOR_* env vars set - TB-scale, GNN search)
+ *   3. AgentDB from @claude-flow/memory (HNSW vector search)
+ *   4. JsonFileBackend (zero dependencies, always works)
+ *
+ * Proactive archiving:
+ *   - UserPromptSubmit hook archives on every prompt, BEFORE context fills up
+ *   - PreCompact hook is a safety net that catches any remaining unarchived turns
+ *   - SessionStart hook restores context after compaction
+ *   - Together, compaction becomes invisible — no information is ever lost
  *
  * Usage:
- *   node context-persistence-hook.mjs pre-compact   # PreCompact: archive transcript
- *   node context-persistence-hook.mjs session-start  # SessionStart: restore context
- *   node context-persistence-hook.mjs status          # Show archive stats
+ *   node context-persistence-hook.mjs pre-compact       # PreCompact: archive transcript
+ *   node context-persistence-hook.mjs session-start      # SessionStart: restore context
+ *   node context-persistence-hook.mjs user-prompt-submit # UserPromptSubmit: proactive archive
+ *   node context-persistence-hook.mjs status              # Show archive stats
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
