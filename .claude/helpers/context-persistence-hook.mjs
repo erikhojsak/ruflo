@@ -1874,7 +1874,7 @@ async function doStatus() {
   console.log(`  Window:      ${formatTokens(CONTEXT_WINDOW_TOKENS)} tokens`);
   console.log(`  Warn at:     ${(AUTOPILOT_WARN_PCT * 100).toFixed(0)}%`);
   console.log(`  Prune at:    ${(AUTOPILOT_PRUNE_PCT * 100).toFixed(0)}%`);
-  console.log(`  Compaction:  ${AUTOPILOT_ENABLED ? 'BLOCKED (autopilot manages context)' : BLOCK_COMPACTION ? 'BLOCKED (env var)' : 'allowed'}`);
+  console.log(`  Compaction:  LOSSLESS (archive before, restore after)`);
 
   const apState = loadAutopilotState();
   if (apState.sessionId) {
