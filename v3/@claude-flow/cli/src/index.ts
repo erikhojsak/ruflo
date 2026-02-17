@@ -338,7 +338,7 @@ export class CLI {
     this.output.writeln(`  ${this.name} mcp start                         # Start MCP server`);
     this.output.writeln();
 
-    this.output.writeln(this.output.dim('Run "claude-flow <command> --help" for command help'));
+    this.output.writeln(this.output.dim(`Run "${this.name} <command> --help" for command help`));
     this.output.writeln();
     this.output.writeln(this.output.dim('Created with ❤️ by ruv.io'));
     this.output.writeln();
@@ -429,7 +429,7 @@ export class CLI {
             this.output.dim(`Updates available: ${nonAutoUpdates.map(u => `${u.package}@${u.latestVersion}`).join(', ')}`)
           );
           this.output.writeln(
-            this.output.dim(`Run 'claude-flow update check' for details`)
+            this.output.dim(`Run '${this.name} update check' for details`)
           );
         }
       }

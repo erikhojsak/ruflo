@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Ruflo CLI - thin wrapper around @claude-flow/cli
+// Ruflo CLI - thin wrapper around @claude-flow/cli with ruflo branding
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -11,7 +11,7 @@ function findCliPath() {
   let dir = resolve(__dirname, '..');
   for (let i = 0; i < 10; i++) {
     const candidate = join(dir, 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js');
-    if (existsSync(candidate)) return candidate;
+    if (existsSync(candidate)) return dir;
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;
@@ -19,10 +19,27 @@ function findCliPath() {
   return null;
 }
 
-const cliPath = findCliPath();
-if (cliPath) {
-  await import(cliPath);
+const pkgDir = findCliPath();
+const cliBase = pkgDir
+  ? join(pkgDir, 'node_modules', '@claude-flow', 'cli')
+  : resolve(__dirname, '../../v3/@claude-flow/cli');
+
+// MCP mode: delegate to cli.js directly (branding irrelevant for JSON-RPC)
+const cliArgs = process.argv.slice(2);
+const isExplicitMCP = cliArgs.length >= 1 && cliArgs[0] === 'mcp' && (cliArgs.length === 1 || cliArgs[1] === 'start');
+const isMCPMode = !process.stdin.isTTY && (process.argv.length === 2 || isExplicitMCP);
+
+if (isMCPMode) {
+  await import(join(cliBase, 'bin', 'cli.js'));
 } else {
-  // Fallback: dev/linked installs
-  await import(resolve(__dirname, '../../v3/@claude-flow/cli/bin/cli.js'));
+  // CLI mode: use ruflo branding
+  const { CLI } = await import(join(cliBase, 'dist', 'src', 'index.js'));
+  const cli = new CLI({
+    name: 'ruflo',
+    description: 'Ruflo - AI Agent Orchestration Platform',
+  });
+  cli.run().catch((error) => {
+    console.error('Fatal error:', error.message);
+    process.exit(1);
+  });
 }
