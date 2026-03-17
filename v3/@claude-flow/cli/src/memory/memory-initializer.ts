@@ -639,6 +639,16 @@ export function clearHNSWIndex(): void {
   hnswIndex = null;
 }
 
+/**
+ * Invalidate the in-memory HNSW cache so the next search rebuilds from DB.
+ * Call this after deleting entries that had embeddings to prevent ghost
+ * vectors from appearing in search results.
+ */
+export function rebuildSearchIndex(): void {
+  hnswIndex = null;
+  hnswInitializing = false;
+}
+
 // ============================================================================
 // INT8 VECTOR QUANTIZATION (4x memory reduction)
 // ============================================================================
@@ -2573,10 +2583,16 @@ export async function deleteEntry(options: {
       };
     }
 
+    // Capture the entry ID for HNSW cleanup
+    const entryId = String(checkResult[0].values[0][0]);
+
     // Delete the entry (soft delete by setting status to 'deleted')
+    // Also null out the embedding to clean up vector data from SQLite
     db.run(`
       UPDATE memory_entries
-      SET status = 'deleted', updated_at = strftime('%s', 'now') * 1000
+      SET status = 'deleted',
+          embedding = NULL,
+          updated_at = strftime('%s', 'now') * 1000
       WHERE key = '${key.replace(/'/g, "''")}'
         AND namespace = '${namespace.replace(/'/g, "''")}'
         AND status = 'active'
@@ -2591,6 +2607,18 @@ export async function deleteEntry(options: {
     fs.writeFileSync(dbPath, Buffer.from(data));
 
     db.close();
+
+    // Clean up in-memory HNSW index so ghost vectors don't appear in searches.
+    // Remove the entry from the HNSW entries map and invalidate the index.
+    // The next search will rebuild the HNSW index from the remaining DB rows.
+    if (hnswIndex?.entries) {
+      hnswIndex.entries.delete(entryId);
+      saveHNSWMetadata();
+      // Invalidate the HNSW index so it rebuilds from DB on next search.
+      // We can't surgically remove a vector from the HNSW graph, so we
+      // clear the entire index; it will be lazily rebuilt from SQLite.
+      rebuildSearchIndex();
+    }
 
     return {
       success: true,
@@ -2625,6 +2653,7 @@ export default {
   listEntries,
   getEntry,
   deleteEntry,
+  rebuildSearchIndex,
   MEMORY_SCHEMA_V3,
   getInitialMetadata
 };

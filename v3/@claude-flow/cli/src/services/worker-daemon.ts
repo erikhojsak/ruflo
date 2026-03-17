@@ -11,7 +11,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from 'fs';
 import { join } from 'path';
 import {
   HeadlessWorkerExecutor,
@@ -453,10 +453,17 @@ export class WorkerDaemon extends EventEmitter {
 
     try {
       // Execute worker logic with timeout (P1 fix)
+      // Pass cleanup callback to kill orphan child processes on timeout (#1117)
       const output = await this.runWithTimeout(
         () => this.runWorkerLogic(workerConfig),
         this.config.workerTimeoutMs,
-        `Worker ${workerConfig.type} timed out after ${this.config.workerTimeoutMs / 1000}s`
+        `Worker ${workerConfig.type} timed out after ${this.config.workerTimeoutMs / 1000}s`,
+        () => {
+          // On timeout, cancel any headless execution to prevent orphan processes
+          if (this.headlessExecutor) {
+            this.headlessExecutor.cancelAll();
+          }
+        }
       );
       const durationMs = Date.now() - startTime;
 
@@ -512,23 +519,44 @@ export class WorkerDaemon extends EventEmitter {
 
   /**
    * Run a function with timeout (P1 fix)
+   * @param fn - The async function to execute
+   * @param timeoutMs - Timeout in milliseconds
+   * @param timeoutMessage - Error message on timeout
+   * @param onTimeout - Optional cleanup callback invoked when timeout fires (#1117: kills orphan processes)
    */
   private async runWithTimeout<T>(
     fn: () => Promise<T>,
     timeoutMs: number,
-    timeoutMessage: string
+    timeoutMessage: string,
+    onTimeout?: () => void
   ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
+      let settled = false;
+
       const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        // Kill orphan child processes before rejecting (#1117)
+        if (onTimeout) {
+          try {
+            onTimeout();
+          } catch {
+            // Ignore cleanup errors
+          }
+        }
         reject(new Error(timeoutMessage));
       }, timeoutMs);
 
       fn()
         .then((result) => {
+          if (settled) return;
+          settled = true;
           clearTimeout(timer);
           resolve(result);
         })
         .catch((error) => {
+          if (settled) return;
+          settled = true;
           clearTimeout(timer);
           reject(error);
         });
@@ -896,8 +924,7 @@ export class WorkerDaemon extends EventEmitter {
     // Also write to log file
     try {
       const logFile = join(this.config.logDir, 'daemon.log');
-      const fs = require('fs');
-      fs.appendFileSync(logFile, logMessage + '\n');
+      appendFileSync(logFile, logMessage + '\n');
     } catch {
       // Ignore log write errors
     }

@@ -166,6 +166,18 @@ export async function isRuvectorAvailable(): Promise<boolean> {
 }
 
 /**
+ * Check if @ruvector/learning-wasm is available and loadable
+ */
+export async function isWasmBackendAvailable(): Promise<boolean> {
+  try {
+    const wasm = await import('@ruvector/learning-wasm');
+    return typeof wasm.WasmMicroLoRA === 'function' && typeof wasm.initSync === 'function';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Get ruvector version if available
  */
 export async function getRuvectorVersion(): Promise<string | null> {
