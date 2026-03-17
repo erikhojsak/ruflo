@@ -1430,9 +1430,8 @@ const preTaskCommand: Command = {
     {
       name: 'task-id',
       short: 'i',
-      description: 'Unique task identifier',
-      type: 'string',
-      required: true
+      description: 'Unique task identifier (auto-generated if omitted)',
+      type: 'string'
     },
     {
       name: 'description',
@@ -1454,11 +1453,11 @@ const preTaskCommand: Command = {
     { command: 'claude-flow hooks pre-task -i task-456 -d "Implement feature" --auto-spawn', description: 'With auto-spawn' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const taskId = ctx.flags.taskId as string;
+    const taskId = (ctx.flags.taskId as string) || `task-${Date.now().toString(36)}`;
     const description = ctx.args[0] || ctx.flags.description as string;
 
-    if (!taskId || !description) {
-      output.printError('Task ID and description are required.');
+    if (!description) {
+      output.printError('Description is required: --description "your task"');
       return { success: false, exitCode: 1 };
     }
 
@@ -4418,6 +4417,48 @@ const taskCompletedCommand: Command = {
   }
 };
 
+// Notify subcommand
+const notifyCommand: Command = {
+  name: 'notify',
+  description: 'Send a notification message (logged to session)',
+  options: [
+    { name: 'message', short: 'm', type: 'string', description: 'Notification message', required: true },
+    { name: 'level', short: 'l', type: 'string', description: 'Level: info, warn, error', default: 'info' },
+    { name: 'channel', short: 'c', type: 'string', description: 'Notification channel', default: 'console' },
+  ],
+  examples: [
+    { command: 'claude-flow hooks notify -m "Build complete"', description: 'Send info notification' },
+    { command: 'claude-flow hooks notify -m "Test failed" -l error', description: 'Send error notification' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const message = ctx.args[0] || ctx.flags.message as string;
+    const level = (ctx.flags.level as string) || 'info';
+
+    if (!message) {
+      output.printError('Message is required: --message "your message"');
+      return { success: false, exitCode: 1 };
+    }
+
+    const timestamp = new Date().toISOString();
+
+    if (level === 'error') {
+      output.printError(`[${timestamp}] ${message}`);
+    } else if (level === 'warn') {
+      output.writeln(output.warning(`[${timestamp}] ${message}`));
+    } else {
+      output.printInfo(`[${timestamp}] ${message}`);
+    }
+
+    // Store notification in memory if available
+    try {
+      const { storeEntry } = await import('../memory/memory-initializer.js');
+      await storeEntry({ key: `notify-${Date.now()}`, value: `[${level}] ${message}`, namespace: 'notifications' });
+    } catch { /* memory not available */ }
+
+    return { success: true, data: { timestamp, level, message } };
+  }
+};
+
 // Main hooks command
 export const hooksCommand: Command = {
   name: 'hooks',
@@ -4439,6 +4480,7 @@ export const hooksCommand: Command = {
     transferCommand,
     listCommand,
     intelligenceCommand,
+    notifyCommand,
     workerCommand,
     progressHookCommand,
     statuslineCommand,

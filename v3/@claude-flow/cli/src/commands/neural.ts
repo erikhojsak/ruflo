@@ -33,7 +33,7 @@ const trainCommand: Command = {
     { command: 'claude-flow neural train -p security --wasm --contrastive', description: 'Security patterns with contrastive learning' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const patternType = ctx.flags.pattern as string || 'coordination';
+    const patternType = (ctx.flags.pattern || ctx.flags.patternType || ctx.flags['pattern-type']) as string || 'coordination';
     const epochs = parseInt(ctx.flags.epochs as string || '50', 10);
     const learningRate = parseFloat(ctx.flags['learning-rate'] as string || '0.01');
     const batchSize = parseInt(ctx.flags['batch-size'] as string || '32', 10);

@@ -690,9 +690,14 @@ export async function findSimilarPatterns(
       queryEmbedding = queryResult.embedding;
     }
 
+    // Hash-fallback embeddings (128-dim) produce lower cosine similarities
+    // than ONNX/transformer embeddings, so use a lower default threshold
+    const isHashFallback = queryEmbedding.length === 128;
+    const defaultThreshold = isHashFallback ? 0.1 : 0.5;
+
     const results = reasoningBank!.findSimilar(queryEmbedding, {
       k: options?.k ?? 5,
-      threshold: options?.threshold ?? 0.5,
+      threshold: options?.threshold ?? defaultThreshold,
       type: options?.type
     });
 
