@@ -150,6 +150,13 @@ claude-flow
 # Removed Windows wrapper files per user request
 hive-mind-prompt-*.txt
 
+# Large files (models, archives, binaries)
+*.tgz
+*.onnx
+*.onnx.data
+bin/claude-flow
+archive/releases/
+
 # Codex local configuration
 .codex/
 
