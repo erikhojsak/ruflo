@@ -161,3 +161,6 @@ hive-mind-prompt-*.txt
 .env
 .env.local
 .env.*.local
+scripts/telegram-bot/node_modules/
+scripts/telegram-bot/sessions.json
+scripts/telegram-bot/tasks.json
