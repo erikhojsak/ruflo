@@ -23,6 +23,10 @@ export interface V3SwarmConfig extends SwarmConfig {
   name: string;
   version: string;
   description: string;
+  messageTimeout: number;
+  retryAttempts: number;
+  healthCheckInterval: number;
+  loadBalancingStrategy: LoadBalancingStrategy;
   domains: DomainConfig[];
   phases: PhaseConfig[];
   performance: PerformanceTargets;

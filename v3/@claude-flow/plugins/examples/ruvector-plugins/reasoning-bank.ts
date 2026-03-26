@@ -117,7 +117,7 @@ export class ReasoningBank {
     const id = `reasoning-${this.nextId++}`;
 
     // Validate inputs
-    const safeProblem = Security.validateString(trajectory.problem, { maxLength: 10000 });
+    const safeProblem = Security.validateString(trajectory.problem, { maxLength: 10000 })!;
 
     // Generate embedding from problem + steps
     const embedding = trajectory.problemEmbedding ?? this.generateEmbedding(safeProblem);
@@ -161,7 +161,7 @@ export class ReasoningBank {
     const k = options?.k ?? 5;
     const minScore = options?.minScore ?? 0.5;
 
-    const safeProblem = Security.validateString(problem, { maxLength: 10000 });
+    const safeProblem = Security.validateString(problem, { maxLength: 10000 })!;
     const queryEmbedding = this.generateEmbedding(safeProblem);
 
     // HNSW search - sub-millisecond for 10K+ vectors

@@ -246,13 +246,13 @@ export class WorkflowEngine {
     const results: TaskResult[] = [];
     const errors: Error[] = [];
 
-    const taskChunks = [];
+    const taskChunks: ITask[][] = [];
     for (let i = 0; i < workflow.tasks.length; i += tasksPerCoordinator) {
       taskChunks.push(workflow.tasks.slice(i, i + tasksPerCoordinator));
     }
 
     await Promise.all(
-      taskChunks.map(async (tasks, index) => {
+      taskChunks.map(async (tasks: ITask[], index: number) => {
         const coordinator = coordinators[index % coordinators.length];
         for (const task of tasks) {
           const agents = await coordinator.listAgents();

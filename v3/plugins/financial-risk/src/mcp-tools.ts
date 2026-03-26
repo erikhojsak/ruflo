@@ -17,6 +17,7 @@ import type {
   AnomalyDetectionResult,
   MarketRegimeResult,
   ComplianceCheckResult,
+  ComplianceViolation,
   StressTestResult,
   FinancialAuditLogEntry,
   MarketRegimeType,
@@ -595,8 +596,8 @@ async function complianceCheckHandler(
     const { entity, regulations, scope, asOfDate } = validation.data;
 
     // Perform compliance checks
-    const violations = [];
-    const warnings = [];
+    const violations: ComplianceViolation[] = [];
+    const warnings: ComplianceViolation[] = [];
     let capitalAdequacy;
 
     // Check Basel III if requested

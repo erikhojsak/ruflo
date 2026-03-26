@@ -1013,10 +1013,10 @@ const hyperbolicCommand: Command = {
           const result = Array.from(rawResult);
           output.writeln(output.success('Euclidean → Poincaré conversion:'));
           output.writeln();
-          output.writeln(`Input (Euclidean):  [${vec.slice(0, 6).map(v => v.toFixed(4)).join(', ')}${vec.length > 6 ? ', ...' : ''}]`);
-          output.writeln(`Output (Poincaré):  [${result.slice(0, 6).map(v => v.toFixed(4)).join(', ')}${result.length > 6 ? ', ...' : ''}]`);
+          output.writeln(`Input (Euclidean):  [${vec.slice(0, 6).map((v: number) => v.toFixed(4)).join(', ')}${vec.length > 6 ? ', ...' : ''}]`);
+          output.writeln(`Output (Poincaré):  [${result.slice(0, 6).map((v: number) => v.toFixed(4)).join(', ')}${result.length > 6 ? ', ...' : ''}]`);
           output.writeln(`Curvature: ${curvature}`);
-          output.writeln(`Norm: ${Math.sqrt(result.reduce((s, v) => s + v * v, 0)).toFixed(6)} (must be < 1)`);
+          output.writeln(`Norm: ${Math.sqrt(result.reduce((s: number, v: number) => s + v * v, 0)).toFixed(6)} (must be < 1)`);
           return { success: true, data: { result } };
         }
 
@@ -1046,7 +1046,7 @@ const hyperbolicCommand: Command = {
           output.writeln(output.success('Hyperbolic centroid (Fréchet mean):'));
           output.writeln();
           output.writeln(`Input vectors: ${vectors.length}`);
-          output.writeln(`Centroid: [${centroid.slice(0, 6).map(v => v.toFixed(4)).join(', ')}${centroid.length > 6 ? ', ...' : ''}]`);
+          output.writeln(`Centroid: [${centroid.slice(0, 6).map((v: number) => v.toFixed(4)).join(', ')}${centroid.length > 6 ? ', ...' : ''}]`);
           return { success: true, data: { centroid } };
         }
 

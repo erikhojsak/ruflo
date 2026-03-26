@@ -164,3 +164,9 @@ hive-mind-prompt-*.txt
 scripts/telegram-bot/node_modules/
 scripts/telegram-bot/sessions.json
 scripts/telegram-bot/tasks.json
+scripts/telegram-bot/odds_cache.json
+scripts/telegram-bot/bankroll.json
+scripts/telegram-bot/alerts.json
+scripts/telegram-bot/parlay_history.json
+scripts/telegram-bot/clv_tracker.json
+scripts/telegram-bot/elo_ratings.json

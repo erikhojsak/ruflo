@@ -15,8 +15,20 @@ declare module 'pg' {
 }
 
 declare module 'sql.js' {
-  const initSqlJs: any;
-  export default initSqlJs;
+  interface Database {
+    run(sql: string, params?: any[]): Database;
+    exec(sql: string, params?: any[]): any[];
+    each(sql: string, params: any[], callback: (row: any) => void, done: () => void): Database;
+    prepare(sql: string): any;
+    close(): void;
+    getRowsModified(): number;
+    export(): Uint8Array;
+  }
+  interface SqlJsStatic {
+    Database: new (data?: ArrayLike<number> | Buffer | null) => Database;
+  }
+  export type { Database };
+  export default function initSqlJs(config?: any): Promise<SqlJsStatic>;
 }
 
 declare module 'agentic-flow' {
@@ -375,4 +387,203 @@ declare module '@xenova/transformers' {
   export default transformers;
   export const pipeline: any;
   export const env: any;
+}
+
+declare module '@noble/ed25519' {
+  export function getPublicKey(privateKey: Uint8Array): Promise<Uint8Array>;
+  export function getPublicKeyAsync(privateKey: Uint8Array): Promise<Uint8Array>;
+  export function sign(message: Uint8Array, privateKey: Uint8Array): Promise<Uint8Array>;
+  export function signAsync(message: Uint8Array, privateKey: Uint8Array): Promise<Uint8Array>;
+  export function verify(signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array): Promise<boolean>;
+  export function verifyAsync(signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array): Promise<boolean>;
+  export const etc: any;
+  export const utils: any;
+}
+
+declare module 'better-sqlite3' {
+  namespace Database {
+    interface Database {
+      prepare(sql: string): any;
+      exec(sql: string): any;
+      pragma(pragma: string, options?: any): any;
+      close(): void;
+      [key: string]: any;
+    }
+    interface Options {
+      readonly?: boolean;
+      fileMustExist?: boolean;
+      timeout?: number;
+      verbose?: Function;
+      [key: string]: any;
+    }
+  }
+  function Database(filename: string, options?: Database.Options): Database.Database;
+  export = Database;
+}
+
+declare module '@ruvector/learning-wasm' {
+  const mod: any;
+  export default mod;
+  export const LearningEngine: any;
+  export const PatternMatcher: any;
+  export class WasmMicroLoRA { constructor(...args: any[]); [key: string]: any; }
+  export class WasmScopedLoRA { constructor(...args: any[]); [key: string]: any; }
+  export class WasmTrajectoryBuffer { constructor(...args: any[]); [key: string]: any; }
+  export function initSync(bytes: BufferSource): void;
+}
+
+declare module '@ruvector/attention-wasm' {
+  const mod: any;
+  export default mod;
+}
+
+declare module '@ruvector/exotic-wasm' {
+  const mod: any;
+  export default mod;
+}
+
+declare module '@ruvector/gnn-wasm' {
+  const mod: any;
+  export default mod;
+}
+
+declare module '@ruvector/hyperbolic-hnsw-wasm' {
+  const mod: any;
+  export default mod;
+}
+
+declare module '@ruvector/micro-hnsw-wasm' {
+  const mod: any;
+  export default mod;
+}
+
+declare module '@ruvector/cognitum-gate-kernel' {
+  const mod: any;
+  export default mod;
+}
+
+declare module '@claude-flow/aidefence' {
+  export const AIDefence: any;
+  export const ThreatDetector: any;
+  export const InputSanitizer: any;
+  export function createDefence(config?: any): any;
+  export function createAIDefence(config?: any): any;
+  export function scanInput(input: string): any;
+  export function isSafe(input: string): boolean;
+}
+
+declare module '@claude-flow/shared' {
+  export interface ClaudeFlowConfig {
+    [key: string]: any;
+  }
+  export interface SystemConfig {
+    [key: string]: any;
+  }
+  export const defaultConfig: any;
+  export function loadConfig(options?: any): any;
+  export function mergeConfig(...configs: any[]): any;
+  export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+}
+
+declare module '@claude-flow/mcp' {
+  export const MCPServer: any;
+  export const MCPClient: any;
+  export function createMCPServer(config?: any, ...args: any[]): any;
+}
+
+declare module '@claude-flow/memory' {
+  export const AgentDB: any;
+  export const MemoryBackend: any;
+  export const ControllerRegistry: any;
+  export function createMemoryBackend(config?: any): any;
+}
+
+declare module '@claude-flow/swarm' {
+  export const SwarmCoordinator: any;
+  export const AgentPool: any;
+  export function createSwarm(config?: any): any;
+}
+
+declare module '@claude-flow/hooks' {
+  export class HookRegistry { register(...args: any[]): any; unregister(...args: any[]): any; [key: string]: any; }
+  export const HookExecutor: any;
+  export function createHookRegistry(config?: any): any;
+  export type HookEvent = string;
+  export const HookEvent: Record<string, string>;
+  export type HookHandler = (...args: any[]) => any;
+  export interface HookContext { [key: string]: any; }
+  export interface HookResult { success: boolean; [key: string]: any; }
+  export interface HookRegistrationOptions { [key: string]: any; }
+  export enum HookPriority { Low = 0, Normal = 1, High = 2, Critical = 3 }
+}
+
+declare module '@claude-flow/embeddings' {
+  export const EmbeddingService: any;
+  export const VectorCache: any;
+  export function createEmbeddingService(config?: any): any;
+  export function embed(text: string): Promise<number[]>;
+  export function downloadEmbeddingModel(model: string, options?: any, ...args: any[]): Promise<any>;
+  export function listEmbeddingModels(): any[];
+  export function chunkText(text: string, options?: any): any;
+  export function euclideanToPoincare(vec: number[], options?: any): number[];
+  export function hyperbolicDistance(a: number[], b: number[], options?: any): number;
+  export function hyperbolicCentroid(vectors: number[][], options?: any): number[];
+}
+
+declare module '@claude-flow/guidance/compiler' {
+  export const GuidanceCompiler: any;
+  export function compile(source: string): any;
+}
+
+declare module '@claude-flow/guidance/retriever' {
+  export const GuidanceRetriever: any;
+  export const ShardRetriever: any;
+  export const HashEmbeddingProvider: any;
+  export function retrieve(query: string): any;
+}
+
+declare module '@claude-flow/guidance/gates' {
+  export const GuidanceGates: any;
+  export const EnforcementGates: any;
+  export function evaluate(gate: string): any;
+}
+
+declare module '@claude-flow/guidance/analyzer' {
+  export const GuidanceAnalyzer: any;
+  export function analyze(input: any, ...args: any[]): any;
+  export function formatReport(input: any, ...args: any[]): any;
+  export function optimizeForSize(input: any, options?: any): any;
+  export function formatBenchmark(input: any): any;
+  export function abBenchmark(tasks: any, options?: any): any;
+  export function getDefaultABTasks(): any[];
+}
+
+declare module '@claude-flow/deployment' {
+  export const DeploymentManager: any;
+  export const ReleaseManager: any;
+  export const Publisher: any;
+  export const Validator: any;
+  export function createDeployment(config?: any): any;
+  export function prepareRelease(config?: any): any;
+  export function publishToNpm(config?: any): any;
+  export function validate(config?: any): any;
+}
+
+declare module '@ruvnet/bmssp' {
+  const mod: any;
+  export default mod;
+}
+
+declare module 'prime-radiant-advanced-wasm' {
+  const mod: any;
+  export default mod;
+}
+
+declare module 'tsup' {
+  export function defineConfig(config: any): any;
+}
+
+declare module 'agentic-flow/core' {
+  export const AgenticFlow: any;
+  export default AgenticFlow;
 }

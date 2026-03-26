@@ -110,9 +110,9 @@ export class SemanticCodeSearch {
   async indexFile(filePath: string, content: string, language: string): Promise<string[]> {
     const db = await this.ensureInitialized();
 
-    const safePath = Security.validateString(filePath, { maxLength: 500 });
-    const safeContent = Security.validateString(content, { maxLength: 1_000_000 });
-    const safeLang = Security.validateString(language, { maxLength: 50 });
+    const safePath = Security.validateString(filePath, { maxLength: 500 })!;
+    const safeContent = Security.validateString(content, { maxLength: 1_000_000 })!;
+    const safeLang = Security.validateString(language, { maxLength: 50 })!;
 
     await this.removeFile(safePath);
 
@@ -152,7 +152,7 @@ export class SemanticCodeSearch {
   async search(query: string, options?: CodeSearchOptions): Promise<CodeSearchResult[]> {
     const db = await this.ensureInitialized();
 
-    const safeQuery = Security.validateString(query, { maxLength: 1000 });
+    const safeQuery = Security.validateString(query, { maxLength: 1000 })!;
     const k = options?.k ?? 10;
     const minSimilarity = options?.minSimilarity ?? 0.3;
 
@@ -196,7 +196,7 @@ export class SemanticCodeSearch {
   async findSimilar(code: string, k: number = 5): Promise<CodeSearchResult[]> {
     const db = await this.ensureInitialized();
 
-    const safeCode = Security.validateString(code, { maxLength: 10000 });
+    const safeCode = Security.validateString(code, { maxLength: 10000 })!;
     const embedding = this.generateCodeEmbedding(safeCode);
     const searchResults = db.search(embedding, k);
 

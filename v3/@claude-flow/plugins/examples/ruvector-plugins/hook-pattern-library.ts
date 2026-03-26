@@ -154,9 +154,9 @@ export class HookPatternLibrary {
   ): Promise<void> {
     const db = await this.ensureInitialized();
 
-    const safeHookName = Security.validateString(hookName, { maxLength: 100 });
-    const safeFileType = Security.validateString(fileType, { maxLength: 50 });
-    const safeOperation = Security.validateString(operation, { maxLength: 50 });
+    const safeHookName = Security.validateString(hookName, { maxLength: 100 }) ?? hookName;
+    const safeFileType = Security.validateString(fileType, { maxLength: 50 }) ?? fileType;
+    const safeOperation = Security.validateString(operation, { maxLength: 50 }) ?? operation;
 
     // Find existing pattern or create new
     let pattern = Array.from(this.patterns.values()).find(
@@ -218,8 +218,8 @@ export class HookPatternLibrary {
   async findPatterns(fileType: string, operation: string, k: number = 5): Promise<PatternMatch[]> {
     const db = await this.ensureInitialized();
 
-    const safeFileType = Security.validateString(fileType, { maxLength: 50 });
-    const safeOperation = Security.validateString(operation, { maxLength: 50 });
+    const safeFileType = Security.validateString(fileType, { maxLength: 50 }) ?? fileType;
+    const safeOperation = Security.validateString(operation, { maxLength: 50 }) ?? operation;
 
     const queryEmbedding = this.generateEmbedding('', HookEvent.PreFileWrite, [safeFileType], [safeOperation]);
     const searchResults = db.search(queryEmbedding, k * 2);
@@ -439,7 +439,7 @@ export const hookPatternLibraryPlugin = new PluginBuilder('hook-pattern-library'
       .build(),
   ])
   .withHooks([
-    new HookBuilder(HookEvent.PostToolCall)
+    new HookBuilder(HookEvent.PostToolUse)
       .withName('hook-auto-record')
       .withDescription('Auto-record hook executions')
       .withPriority(HookPriority.Deferred)

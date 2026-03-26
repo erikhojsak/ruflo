@@ -125,8 +125,8 @@ export class IntentRouter {
   ): Promise<Intent> {
     const db = await this.ensureInitialized();
 
-    const safePattern = Security.validateString(pattern, { maxLength: 500 });
-    const safeCategory = Security.validateString(category, { maxLength: 100 });
+    const safePattern = Security.validateString(pattern, { maxLength: 500 }) ?? pattern;
+    const safeCategory = Security.validateString(category, { maxLength: 100 }) ?? category;
 
     const id = `intent-${this.nextId++}`;
     const examples = options?.examples ?? [];
@@ -155,7 +155,7 @@ export class IntentRouter {
   async route(query: string): Promise<RouteResult> {
     const db = await this.ensureInitialized();
 
-    const safeQuery = Security.validateString(query, { maxLength: 1000 });
+    const safeQuery = Security.validateString(query, { maxLength: 1000 }) ?? query;
     const queryEmbedding = this.generateEmbedding(safeQuery);
     const searchResults = db.search(queryEmbedding, this.config.maxAlternatives + 1);
 

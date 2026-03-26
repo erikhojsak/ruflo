@@ -46,9 +46,6 @@ export {
   isSuccess,
   isError,
 
-  // Namespace
-  RuVector,
-
   // Attention Mechanisms
   AttentionRegistry,
   AttentionFactory,
@@ -75,6 +72,9 @@ export {
   LearningLoop,
   createSelfLearningSystem,
 } from './ruvector/index.js';
+
+// Namespace (type-only)
+export type { RuVector } from './ruvector/index.js';
 
 // Re-export common RuVector types for convenience
 export type {

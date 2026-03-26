@@ -9,7 +9,8 @@
 
 import { EventEmitter } from 'node:events';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
+import initSqlJs from 'sql.js';
+import type { Database as SqlJsDatabase } from 'sql.js';
 import {
   IMemoryBackend,
   MemoryEntry,

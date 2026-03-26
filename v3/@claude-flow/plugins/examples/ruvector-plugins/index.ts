@@ -53,14 +53,6 @@ export type {
   HookRecommendation,
 } from './hook-pattern-library.js';
 
-// Re-export classes for direct usage
-export { ReasoningBank } from './reasoning-bank.js';
-export { SemanticCodeSearch } from './semantic-code-search.js';
-export { SONALearning } from './sona-learning.js';
-export { IntentRouter } from './intent-router.js';
-export { MCPToolOptimizer } from './mcp-tool-optimizer.js';
-export { HookPatternLibrary } from './hook-pattern-library.js';
-
 /**
  * Register all RuVector plugins with the default registry.
  */

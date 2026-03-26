@@ -22,7 +22,7 @@
  */
 
 // Core types
-export {
+export type {
   // Protocol types
   JsonRpcVersion,
   RequestId,
@@ -84,8 +84,10 @@ export {
   // Logger
   LogLevel,
   ILogger,
+} from './types.js';
 
-  // Error handling
+// Error handling (values)
+export {
   ErrorCodes,
   MCPServerError,
 } from './types.js';
@@ -93,9 +95,9 @@ export {
 // Server
 export {
   MCPServer,
-  IMCPServer,
   createMCPServer,
 } from './server.js';
+export type { IMCPServer } from './server.js';
 
 // Tool Registry
 export {
@@ -107,9 +109,9 @@ export {
 // Session Manager
 export {
   SessionManager,
-  SessionConfig,
   createSessionManager,
 } from './session-manager.js';
+export type { SessionConfig } from './session-manager.js';
 
 // Connection Pool
 export {
@@ -124,15 +126,17 @@ export {
   createInProcessTransport,
   TransportManager,
   createTransportManager,
-  TransportConfig,
   DEFAULT_TRANSPORT_CONFIGS,
 
   // Specific transports
   StdioTransport,
-  StdioTransportConfig,
   HttpTransport,
-  HttpTransportConfig,
   WebSocketTransport,
+} from './transport/index.js';
+export type {
+  TransportConfig,
+  StdioTransportConfig,
+  HttpTransportConfig,
   WebSocketTransportConfig,
 } from './transport/index.js';
 

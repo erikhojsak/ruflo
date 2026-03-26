@@ -3,10 +3,6 @@
  */
 
 export {
-  // Interfaces
-  IVectorDB,
-  ILoRAEngine,
-  LoRAAdapter,
   // Fallback implementations
   FallbackVectorDB,
   FallbackLoRAEngine,
@@ -17,4 +13,11 @@ export {
   cosineSimilarity,
   generateHashEmbedding,
   LazyInitializable,
+} from './vector-utils.js';
+
+// Interfaces
+export type {
+  IVectorDB,
+  ILoRAEngine,
+  LoRAAdapter,
 } from './vector-utils.js';

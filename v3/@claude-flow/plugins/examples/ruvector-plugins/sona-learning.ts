@@ -127,10 +127,10 @@ export class SONALearning {
     const { lora, db } = await this.ensureInitialized();
     const startTime = performance.now();
 
-    const safeCategory = Security.validateString(category, { maxLength: 100 });
-    const safeTrigger = Security.validateString(trigger, { maxLength: 1000 });
-    const safeAction = Security.validateString(action, { maxLength: 1000 });
-    const safeQuality = Security.validateNumber(quality, { min: 0, max: 1 });
+    const safeCategory = Security.validateString(category, { maxLength: 100 })!;
+    const safeTrigger = Security.validateString(trigger, { maxLength: 1000 })!;
+    const safeAction = Security.validateString(action, { maxLength: 1000 })!;
+    const safeQuality = Security.validateNumber(quality, { min: 0, max: 1 })!;
 
     const id = `pattern-${this.nextId++}`;
     const embedding = this.generatePatternEmbedding(safeTrigger, safeAction, safeCategory);
@@ -161,7 +161,7 @@ export class SONALearning {
     await lora.updateAdapter(adapter.id, gradient, this.config.learningRate);
 
     // Apply EWC++ to prevent catastrophic forgetting
-    await lora.applyEWC(adapter.id, this.config.ewcLambda);
+    await lora.applyEWC?.(adapter.id, this.config.ewcLambda);
 
     // Store in vector DB
     db.insert(embedding, id, { category: safeCategory, quality: safeQuality });
@@ -184,7 +184,7 @@ export class SONALearning {
   async retrieve(trigger: string, category?: string, k: number = 5): Promise<LearningPattern[]> {
     const { db } = await this.ensureInitialized();
 
-    const safeTrigger = Security.validateString(trigger, { maxLength: 1000 });
+    const safeTrigger = Security.validateString(trigger, { maxLength: 1000 })!;
     const queryEmbedding = this.generatePatternEmbedding(safeTrigger, '', category || '');
     const searchResults = db.search(queryEmbedding, k * 2);
 

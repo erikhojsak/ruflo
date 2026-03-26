@@ -288,7 +288,7 @@ export type {
   SwarmInitResult,
   SwarmScaleOptions,
   SwarmScaleResult,
-  SwarmMessage,
+  SwarmMessage as SwarmMessageExtended,
   ConsensusRequest,
   ConsensusResponse,
   DistributedLock,
@@ -389,7 +389,7 @@ export {
 // Event System
 export type {
   IEventBus,
-  IEventStore,
+  IEventStore as IEventStoreShared,
   EventFilter,
   EventStoreSnapshot
 } from './shared/events';
@@ -418,7 +418,7 @@ export {
 
 // Agent Registry
 export type {
-  IAgentRegistry,
+  IAgentRegistry as IAgentRegistryCoord,
   HealthStatus
 } from './coordination/agent-registry';
 

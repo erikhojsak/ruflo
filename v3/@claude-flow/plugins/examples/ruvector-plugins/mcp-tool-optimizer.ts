@@ -126,9 +126,9 @@ export class MCPToolOptimizer {
     outcome: 'success' | 'failure' | 'partial',
     duration: number
   ): Promise<ToolUsagePattern> {
-    const safeToolName = Security.validateString(toolName, { maxLength: 100 });
-    const safeContext = Security.validateString(context, { maxLength: 500 });
-    const safeInput = Security.validateString(inputSummary, { maxLength: 500 });
+    const safeToolName = Security.validateString(toolName, { maxLength: 100 }) ?? toolName;
+    const safeContext = Security.validateString(context, { maxLength: 500 }) ?? context;
+    const safeInput = Security.validateString(inputSummary, { maxLength: 500 }) ?? inputSummary;
 
     const patternKey = `${safeToolName}:${this.hashContext(safeContext)}`;
     let pattern = this.patterns.get(patternKey);
@@ -171,7 +171,7 @@ export class MCPToolOptimizer {
   }
 
   startSession(context: string): void {
-    this.currentSession = { tools: [], startTime: Date.now(), context: Security.validateString(context, { maxLength: 500 }) };
+    this.currentSession = { tools: [], startTime: Date.now(), context: Security.validateString(context, { maxLength: 500 }) ?? context };
   }
 
   async endSession(outcome: 'success' | 'failure'): Promise<ToolSequence | null> {
@@ -201,8 +201,8 @@ export class MCPToolOptimizer {
   async optimize(tools: string[], context: string): Promise<OptimizationSuggestion[]> {
     const { db } = await this.ensureInitialized();
     const suggestions: OptimizationSuggestion[] = [];
-    const safeTools = tools.map(t => Security.validateString(t, { maxLength: 100 }));
-    const safeContext = Security.validateString(context, { maxLength: 500 });
+    const safeTools = tools.map(t => Security.validateString(t, { maxLength: 100 }) ?? t);
+    const safeContext = Security.validateString(context, { maxLength: 500 }) ?? context;
 
     const embedding = this.generateSequenceEmbedding(safeTools, safeContext);
     const similarSequences = db.search(embedding, 5)
@@ -241,7 +241,7 @@ export class MCPToolOptimizer {
 
   async suggestNext(currentTool: string, context: string): Promise<Array<{ tool: string; probability: number; reason: string }>> {
     const suggestions: Array<{ tool: string; probability: number; reason: string }> = [];
-    const safeTool = Security.validateString(currentTool, { maxLength: 100 });
+    const safeTool = Security.validateString(currentTool, { maxLength: 100 }) ?? currentTool;
 
     const patternKey = `${safeTool}:${this.hashContext(context)}`;
     const pattern = this.patterns.get(patternKey);
@@ -388,7 +388,7 @@ export const mcpToolOptimizerPlugin = new PluginBuilder('mcp-tool-optimizer', '1
       .build(),
   ])
   .withHooks([
-    new HookBuilder(HookEvent.PostToolCall)
+    new HookBuilder(HookEvent.PostToolUse)
       .withName('tool-usage-record')
       .withDescription('Record tool usage')
       .withPriority(HookPriority.Low)

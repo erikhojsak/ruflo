@@ -431,6 +431,22 @@ export class HookBuilder {
     return this;
   }
 
+  /**
+   * Add a condition for when this hook should execute.
+   * Simplified no-op in SDK builder — always returns this.
+   */
+  when(condition: (context: any) => boolean): this {
+    return this;
+  }
+
+  /**
+   * Alias for withHandler — sets the hook handler function.
+   */
+  handle(handler: HookHandler): this {
+    this.handler = handler;
+    return this;
+  }
+
   build(): HookDefinition {
     if (!this.handler) {
       throw new Error(`Hook for event ${this.event} requires a handler`);
