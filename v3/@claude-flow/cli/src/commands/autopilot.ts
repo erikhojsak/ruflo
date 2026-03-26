@@ -7,212 +7,11 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-
-// ── State Management ──────────────────────────────────────────
-
-const STATE_DIR = '.claude-flow/data';
-const STATE_FILE = `${STATE_DIR}/autopilot-state.json`;
-const LOG_FILE = `${STATE_DIR}/autopilot-log.json`;
-
-interface AutopilotState {
-  sessionId: string;
-  enabled: boolean;
-  startTime: number;
-  iterations: number;
-  maxIterations: number;
-  timeoutMinutes: number;
-  taskSources: string[];
-  lastCheck: number | null;
-  history: Array<{ ts: number; iteration: number; completed: number; total: number }>;
-}
-
-interface AutopilotLogEntry {
-  ts: number;
-  event: string;
-  [key: string]: unknown;
-}
-
-interface TaskInfo {
-  id: string;
-  subject: string;
-  status: string;
-  source: string;
-}
-
-function getDefaultState(): AutopilotState {
-  const crypto = require('crypto') as typeof import('crypto');
-  return {
-    sessionId: crypto.randomUUID(),
-    enabled: false,
-    startTime: Date.now(),
-    iterations: 0,
-    maxIterations: 50,
-    timeoutMinutes: 240,
-    taskSources: ['team-tasks', 'swarm-tasks', 'file-checklist'],
-    lastCheck: null,
-    history: [],
-  };
-}
-
-function loadState(): AutopilotState {
-  const fs = require('fs') as typeof import('fs');
-  const path = require('path') as typeof import('path');
-  const filePath = path.resolve(STATE_FILE);
-  try {
-    if (fs.existsSync(filePath)) {
-      return { ...getDefaultState(), ...JSON.parse(fs.readFileSync(filePath, 'utf-8')) };
-    }
-  } catch { /* ignore */ }
-  return getDefaultState();
-}
-
-function saveState(state: AutopilotState): void {
-  const fs = require('fs') as typeof import('fs');
-  const path = require('path') as typeof import('path');
-  const dir = path.resolve(STATE_DIR);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.resolve(STATE_FILE), JSON.stringify(state, null, 2));
-}
-
-function appendLog(entry: AutopilotLogEntry): void {
-  const fs = require('fs') as typeof import('fs');
-  const path = require('path') as typeof import('path');
-  const filePath = path.resolve(LOG_FILE);
-  const dir = path.resolve(STATE_DIR);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  let log: AutopilotLogEntry[] = [];
-  try {
-    if (fs.existsSync(filePath)) {
-      log = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-    }
-  } catch { /* ignore */ }
-  log.push(entry);
-  if (log.length > 1000) log = log.slice(-1000);
-  fs.writeFileSync(filePath, JSON.stringify(log, null, 2));
-}
-
-function loadLog(): AutopilotLogEntry[] {
-  const fs = require('fs') as typeof import('fs');
-  const path = require('path') as typeof import('path');
-  const filePath = path.resolve(LOG_FILE);
-  try {
-    if (fs.existsSync(filePath)) {
-      return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-    }
-  } catch { /* ignore */ }
-  return [];
-}
-
-// ── Task Discovery ────────────────────────────────────────────
-
-export function discoverTasks(sources: string[]): TaskInfo[] {
-  const fs = require('fs') as typeof import('fs');
-  const path = require('path') as typeof import('path');
-  const os = require('os') as typeof import('os');
-  const tasks: TaskInfo[] = [];
-
-  for (const source of sources) {
-    if (source === 'team-tasks') {
-      const tasksDir = path.join(os.homedir(), '.claude', 'tasks');
-      try {
-        if (fs.existsSync(tasksDir)) {
-          const teams = fs.readdirSync(tasksDir, { withFileTypes: true });
-          for (const team of teams) {
-            if (!team.isDirectory()) continue;
-            const teamDir = path.join(tasksDir, team.name);
-            const files = fs.readdirSync(teamDir).filter((f: string) => f.endsWith('.json'));
-            for (const file of files) {
-              try {
-                const data = JSON.parse(fs.readFileSync(path.join(teamDir, file), 'utf-8'));
-                tasks.push({
-                  id: data.id || file.replace('.json', ''),
-                  subject: data.subject || data.title || file,
-                  status: data.status || 'unknown',
-                  source: 'team-tasks',
-                });
-              } catch { /* skip */ }
-            }
-          }
-        }
-      } catch { /* ignore */ }
-    }
-
-    if (source === 'swarm-tasks') {
-      const swarmFile = path.resolve('.claude-flow/swarm-tasks.json');
-      try {
-        if (fs.existsSync(swarmFile)) {
-          const data = JSON.parse(fs.readFileSync(swarmFile, 'utf-8'));
-          const swarmTasks = Array.isArray(data) ? data : (data.tasks || []);
-          for (const t of swarmTasks) {
-            tasks.push({
-              id: t.id || t.taskId || `swarm-${tasks.length}`,
-              subject: t.subject || t.description || t.name || 'Unnamed task',
-              status: t.status || 'unknown',
-              source: 'swarm-tasks',
-            });
-          }
-        }
-      } catch { /* ignore */ }
-    }
-
-    if (source === 'file-checklist') {
-      const checklistFile = path.resolve('.claude-flow/data/checklist.json');
-      try {
-        if (fs.existsSync(checklistFile)) {
-          const data = JSON.parse(fs.readFileSync(checklistFile, 'utf-8'));
-          const items = Array.isArray(data) ? data : (data.items || []);
-          for (const item of items) {
-            tasks.push({
-              id: item.id || `check-${tasks.length}`,
-              subject: item.subject || item.text || item.description || 'Unnamed item',
-              status: item.status || (item.done ? 'completed' : 'pending'),
-              source: 'file-checklist',
-            });
-          }
-        }
-      } catch { /* ignore */ }
-    }
-  }
-
-  return tasks;
-}
-
-const TERMINAL_STATUSES = new Set(['completed', 'done', 'cancelled', 'skipped', 'failed']);
-
-function isTerminal(status: string): boolean {
-  return TERMINAL_STATUSES.has(status.toLowerCase());
-}
-
-function getProgress(tasks: TaskInfo[]): { completed: number; total: number; percent: number; incomplete: TaskInfo[] } {
-  const completed = tasks.filter(t => isTerminal(t.status)).length;
-  const total = tasks.length;
-  const percent = total === 0 ? 100 : Math.round((completed / total) * 100);
-  const incomplete = tasks.filter(t => !isTerminal(t.status));
-  return { completed, total, percent, incomplete };
-}
-
-// ── Reward Calculation ────────────────────────────────────────
-
-function calculateReward(iterations: number, durationMs: number): number {
-  const iterFactor = (1 - iterations / (iterations + 10)) * 0.6;
-  const timeFactor = (1 - Math.min(durationMs / 3600000, 1)) * 0.4;
-  return Math.round((iterFactor + timeFactor) * 100) / 100;
-}
-
-// ── Learning Integration (graceful degradation) ───────────────
-
-async function tryLoadLearning(): Promise<{ initialize: () => Promise<boolean>; [key: string]: unknown } | null> {
-  try {
-    // Dynamic import — won't fail at compile time
-    const modPath = 'agentic-flow/dist/coordination/autopilot-learning.js';
-    const mod = await import(/* webpackIgnore: true */ modPath).catch(() => null);
-    if (mod?.AutopilotLearning) {
-      const instance = new mod.AutopilotLearning();
-      if (await instance.initialize()) return instance;
-    }
-  } catch { /* not available */ }
-  return null;
-}
+import {
+  loadState, saveState, appendLog, loadLog, discoverTasks,
+  getProgress, calculateReward, tryLoadLearning, validateNumber,
+  validateTaskSources, LOG_FILE,
+} from '../autopilot-state.js';
 
 // ── Check Handler (for Stop hook) ─────────────────────────────
 
@@ -376,9 +175,9 @@ const configCommand: Command = {
     const timeout = ctx.flags?.timeout as string | undefined;
     const sources = ctx.flags?.['task-sources'] as string | undefined;
 
-    if (maxIter) state.maxIterations = Math.min(Math.max(1, parseInt(maxIter, 10) || 50), 1000);
-    if (timeout) state.timeoutMinutes = Math.min(Math.max(1, parseInt(timeout, 10) || 240), 1440);
-    if (sources) state.taskSources = sources.split(',').map(s => s.trim()).filter(Boolean);
+    if (maxIter) state.maxIterations = validateNumber(maxIter, 1, 1000, state.maxIterations);
+    if (timeout) state.timeoutMinutes = validateNumber(timeout, 1, 1440, state.timeoutMinutes);
+    if (sources) state.taskSources = validateTaskSources(sources.split(',').map(s => s.trim()).filter(Boolean));
 
     saveState(state);
     appendLog({ ts: Date.now(), event: 'config-updated', maxIterations: state.maxIterations, timeoutMinutes: state.timeoutMinutes, taskSources: state.taskSources });
@@ -421,7 +220,8 @@ const logCommand: Command = {
     }
 
     const log = loadLog();
-    const last = ctx.flags?.last ? parseInt(ctx.flags.last as string, 10) : undefined;
+    const lastRaw = ctx.flags?.last as string | undefined;
+    const last = lastRaw ? validateNumber(lastRaw, 1, 10000, 50) : undefined;
     const entries = last ? log.slice(-last) : log;
 
     if (ctx.flags?.json) {
@@ -486,7 +286,7 @@ const historyCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const query = (ctx.flags?.query || '') as string;
-    const limit = parseInt((ctx.flags?.limit || '10') as string, 10);
+    const limit = validateNumber(ctx.flags?.limit, 1, 100, 10);
 
     if (!query) {
       output.writeln('Usage: autopilot history --query "search terms" [--limit N]');

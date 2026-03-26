@@ -101,25 +101,75 @@ const mockChatTemplate = {
   name: 'llama3',
 };
 
+// Use class syntax for mocks that are invoked with `new` — vi.fn().mockImplementation(() => ...)
+// returns an arrow function which is NOT constructable and throws "is not a constructor".
 vi.mock('@ruvector/ruvllm-wasm', () => ({
   default: vi.fn(),
   initSync: vi.fn(),
-  RuvLLMWasm: vi.fn().mockImplementation(() => ({
-    initialize: vi.fn(),
-    isInitialized: true,
-    getPoolStats: vi.fn().mockReturnValue('{}'),
-    reset: vi.fn(),
-  })),
-  HnswRouterWasm: vi.fn().mockImplementation(() => mockHnswRouter),
-  SonaConfigWasm: vi.fn().mockImplementation(() => ({ ...mockSonaConfig })),
-  SonaInstantWasm: vi.fn().mockImplementation(() => mockSonaInstant),
-  MicroLoraConfigWasm: vi.fn().mockImplementation(() => ({ ...mockLoraConfig })),
-  AdaptFeedbackWasm: vi.fn().mockImplementation(() => ({ ...mockAdaptFeedback })),
-  MicroLoraWasm: vi.fn().mockImplementation(() => mockLora),
-  KvCacheConfigWasm: vi.fn().mockImplementation(() => ({ ...mockKvCacheConfig })),
-  KvCacheWasm: Object.assign(vi.fn().mockImplementation(() => mockKvCache), {
-    withDefaults: vi.fn().mockReturnValue(mockKvCache),
-  }),
+  RuvLLMWasm: class {
+    initialize = vi.fn();
+    isInitialized = true;
+    getPoolStats = vi.fn().mockReturnValue('{}');
+    reset = vi.fn();
+  },
+  HnswRouterWasm: class {
+    addPattern = mockHnswRouter.addPattern;
+    route = mockHnswRouter.route;
+    setEfSearch = mockHnswRouter.setEfSearch;
+    clear = mockHnswRouter.clear;
+    toJson = mockHnswRouter.toJson;
+    dimensions = 64;
+    constructor(..._args: unknown[]) { /* accept any ctor args */ }
+  },
+  SonaConfigWasm: class {
+    hiddenDim = 64;
+    learningRate = 0.01;
+    emaDecay = 0.99;
+    ewcLambda = 0.01;
+    microLoraRank = 2;
+    patternCapacity = 100;
+  },
+  SonaInstantWasm: class {
+    instantAdapt = mockSonaInstant.instantAdapt;
+    recordPattern = mockSonaInstant.recordPattern;
+    suggestAction = mockSonaInstant.suggestAction;
+    stats = mockSonaInstant.stats;
+    toJson = mockSonaInstant.toJson;
+    reset = mockSonaInstant.reset;
+    constructor(..._args: unknown[]) { /* accept SonaConfigWasm */ }
+  },
+  MicroLoraConfigWasm: class {
+    inputDim = 64;
+    outputDim = 32;
+    rank = 2;
+    alpha = 1.0;
+  },
+  AdaptFeedbackWasm: class {
+    quality = 0;
+    learningRate = 0;
+    success = true;
+  },
+  MicroLoraWasm: class {
+    apply = mockLora.apply;
+    adapt = mockLora.adapt;
+    applyUpdates = mockLora.applyUpdates;
+    stats = mockLora.stats;
+    reset = mockLora.reset;
+    toJson = mockLora.toJson;
+    getConfig = mockLora.getConfig;
+    pendingUpdates = mockLora.pendingUpdates;
+    constructor(..._args: unknown[]) { /* accept MicroLoraConfigWasm */ }
+  },
+  KvCacheConfigWasm: class {
+    tailLength = 4;
+    maxTokens = 2048;
+    numKvHeads = 8;
+    headDim = 64;
+  },
+  KvCacheWasm: Object.assign(
+    class { append = mockKvCache.append; stats = mockKvCache.stats; clear = mockKvCache.clear; tokenCount = 0; },
+    { withDefaults: vi.fn().mockReturnValue(mockKvCache) },
+  ),
   GenerateConfig: class {
     maxTokens = 100;
     temperature = 0.7;
@@ -131,9 +181,10 @@ vi.mock('@ruvector/ruvllm-wasm', () => ({
     toJson = mockGenerateConfig.toJson;
   },
   BufferPoolWasm: { withCapacity: vi.fn().mockReturnValue(mockBufferPool) },
-  InferenceArenaWasm: Object.assign(vi.fn().mockImplementation(() => mockInferenceArena), {
-    forModel: vi.fn().mockReturnValue(mockInferenceArena),
-  }),
+  InferenceArenaWasm: Object.assign(
+    class { reset = mockInferenceArena.reset; used = 1024; capacity = 8192; remaining = 7168; },
+    { forModel: vi.fn().mockReturnValue(mockInferenceArena) },
+  ),
   ChatMessageWasm: mockChatMessage,
   ChatTemplateWasm: {
     llama3: vi.fn().mockReturnValue(mockChatTemplate),

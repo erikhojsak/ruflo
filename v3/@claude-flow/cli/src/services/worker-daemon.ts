@@ -103,8 +103,9 @@ const DEFAULT_WORKERS: WorkerConfigInternal[] = [
   { type: 'document', intervalMs: 60 * 60 * 1000, offsetMs: 0, priority: 'low', description: 'Auto-documentation', enabled: false },
 ];
 
-// Worker timeout (5 minutes max per worker)
-const DEFAULT_WORKER_TIMEOUT_MS = 5 * 60 * 1000;
+// Worker timeout — must exceed the longest per-worker headless timeout (15 min for audit/refactor).
+// Previously 5 min, which caused orphan processes when daemon timeout fired before executor timeout (#1117).
+const DEFAULT_WORKER_TIMEOUT_MS = 16 * 60 * 1000;
 
 /**
  * Worker Daemon - Manages background workers with Node.js
