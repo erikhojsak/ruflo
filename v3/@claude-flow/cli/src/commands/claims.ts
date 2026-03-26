@@ -8,6 +8,66 @@
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 
+interface ClaimsConfig {
+  roles?: Record<string, string[]>;
+  users?: Record<string, { role?: string; claims?: string[] }>;
+  defaultClaims?: string[];
+}
+
+const CLAIMS_CONFIG_PATHS = [
+  '.claude-flow/claims.json',
+  'claude-flow.claims.json',
+];
+
+function getClaimsConfigPaths(): string[] {
+  // Lazy import to keep top-level synchronous
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const path = require('path') as typeof import('path');
+  return [
+    path.resolve(CLAIMS_CONFIG_PATHS[0]),
+    path.resolve(CLAIMS_CONFIG_PATHS[1]),
+    path.resolve(process.env.HOME || '~', '.config/claude-flow/claims.json'),
+  ];
+}
+
+function loadClaimsConfig(): { config: ClaimsConfig; path: string } {
+  const fs = require('fs') as typeof import('fs');
+  const configPaths = getClaimsConfigPaths();
+
+  for (const configPath of configPaths) {
+    if (fs.existsSync(configPath)) {
+      const content = fs.readFileSync(configPath, 'utf-8');
+      return { config: JSON.parse(content) as ClaimsConfig, path: configPath };
+    }
+  }
+
+  // Return default config with the first path as the default write location
+  const defaultConfig: ClaimsConfig = {
+    roles: {
+      admin: ['*'],
+      developer: ['swarm:*', 'agent:*', 'memory:*', 'task:*', 'session:*'],
+      operator: ['swarm:status', 'agent:list', 'memory:read', 'task:list'],
+      viewer: ['*:list', '*:status', '*:read'],
+    },
+    defaultClaims: ['swarm:create', 'swarm:status', 'agent:spawn', 'agent:list', 'memory:read', 'memory:write', 'task:create'],
+  };
+  return { config: defaultConfig, path: configPaths[0] };
+}
+
+function saveClaimsConfig(config: ClaimsConfig, configPath: string): void {
+  const fs = require('fs') as typeof import('fs');
+  const path = require('path') as typeof import('path');
+
+  const dir = path.dirname(configPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  const tmpPath = configPath + '.tmp';
+  fs.writeFileSync(tmpPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+  fs.renameSync(tmpPath, configPath);
+}
+
 // List subcommand
 const listCommand: Command = {
   name: 'list',
@@ -21,31 +81,74 @@ const listCommand: Command = {
     { command: 'claude-flow claims list', description: 'List all claims' },
     { command: 'claude-flow claims list -u user123', description: 'List user claims' },
   ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    output.writeln();
-    output.writeln(output.bold('Claims & Permissions'));
-    output.writeln(output.dim('─'.repeat(70)));
+  action: async (_ctx: CommandContext): Promise<CommandResult> => {
+    try {
+      const { config, path: configPath } = loadClaimsConfig();
 
-    output.printTable({
-      columns: [
-        { key: 'claim', header: 'Claim', width: 25 },
-        { key: 'type', header: 'Type', width: 12 },
-        { key: 'scope', header: 'Scope', width: 15 },
-        { key: 'value', header: 'Value', width: 20 },
-      ],
-      data: [
-        { claim: 'swarm:create', type: 'Permission', scope: 'Global', value: output.success('Allowed') },
-        { claim: 'swarm:delete', type: 'Permission', scope: 'Owned', value: output.success('Allowed') },
-        { claim: 'agent:spawn', type: 'Permission', scope: 'Global', value: output.success('Allowed') },
-        { claim: 'memory:read', type: 'Permission', scope: 'Namespace', value: output.success('Allowed') },
-        { claim: 'memory:write', type: 'Permission', scope: 'Namespace', value: output.success('Allowed') },
-        { claim: 'admin:*', type: 'Permission', scope: 'Global', value: output.error('Denied') },
-        { claim: 'role', type: 'Identity', scope: 'System', value: 'developer' },
-        { claim: 'tier', type: 'Identity', scope: 'System', value: 'pro' },
-      ],
-    });
+      output.writeln();
+      output.writeln(output.bold('Claims Configuration'));
+      output.writeln(output.dim('─'.repeat(50)));
 
-    return { success: true };
+      // Roles table
+      const roles = config.roles || {};
+      const roleEntries = Object.entries(roles);
+      if (roleEntries.length > 0) {
+        output.writeln();
+        output.writeln(output.bold('Roles'));
+        output.printTable({
+          columns: [
+            { key: 'role', header: 'Role' },
+            { key: 'count', header: 'Claims' },
+            { key: 'preview', header: 'Preview', width: 50 },
+          ],
+          data: roleEntries.map(([name, claims]) => ({
+            role: name,
+            count: claims.length,
+            preview: claims.slice(0, 4).join(', ') + (claims.length > 4 ? ', ...' : ''),
+          })),
+          border: true,
+          header: true,
+        });
+      }
+
+      // Users table
+      const users = config.users || {};
+      const userEntries = Object.entries(users);
+      if (userEntries.length > 0) {
+        output.writeln();
+        output.writeln(output.bold('Users'));
+        output.printTable({
+          columns: [
+            { key: 'user', header: 'User' },
+            { key: 'role', header: 'Role' },
+            { key: 'extraClaims', header: 'Extra Claims' },
+          ],
+          data: userEntries.map(([name, info]) => ({
+            user: name,
+            role: info.role || output.dim('(none)'),
+            extraClaims: info.claims ? info.claims.join(', ') : output.dim('(none)'),
+          })),
+          border: true,
+          header: true,
+        });
+      }
+
+      // Default claims
+      const defaults = config.defaultClaims || [];
+      if (defaults.length > 0) {
+        output.writeln();
+        output.writeln(output.bold('Default Claims'));
+        output.printList(defaults);
+      }
+
+      output.writeln();
+      output.writeln(output.dim(`Config: ${configPath}`));
+
+      return { success: true };
+    } catch (error) {
+      output.printError(`Failed to list claims: ${(error as Error).message}`);
+      return { success: false, exitCode: 1 };
+    }
   },
 };
 
@@ -212,7 +315,6 @@ const grantCommand: Command = {
     const claim = ctx.flags.claim as string;
     const user = ctx.flags.user as string;
     const role = ctx.flags.role as string;
-    const scope = ctx.flags.scope as string || 'global';
 
     if (!claim) {
       output.printError('Claim is required');
@@ -224,21 +326,37 @@ const grantCommand: Command = {
       return { success: false, exitCode: 1 };
     }
 
-    output.writeln();
-    const spinner = output.createSpinner({ text: 'Granting claim...', spinner: 'dots' });
-    spinner.start();
-    await new Promise(r => setTimeout(r, 400));
-    spinner.succeed('Claim granted');
+    try {
+      const { config, path: configPath } = loadClaimsConfig();
 
-    output.writeln();
-    output.printBox([
-      `Claim: ${claim}`,
-      `Target: ${user ? `User: ${user}` : `Role: ${role}`}`,
-      `Scope: ${scope}`,
-      `Status: ${output.success('Active')}`,
-    ].join('\n'), 'Grant Complete');
+      if (user) {
+        if (!config.users) config.users = {};
+        if (!config.users[user]) config.users[user] = {};
+        if (!config.users[user].claims) config.users[user].claims = [];
+        if (!config.users[user].claims!.includes(claim)) {
+          config.users[user].claims!.push(claim);
+        }
+      }
 
-    return { success: true };
+      if (role) {
+        if (!config.roles) config.roles = {};
+        if (!config.roles[role]) config.roles[role] = [];
+        if (!config.roles[role].includes(claim)) {
+          config.roles[role].push(claim);
+        }
+      }
+
+      saveClaimsConfig(config, configPath);
+
+      output.writeln();
+      const target = user ? `user "${user}"` : `role "${role}"`;
+      output.writeln(output.success(`Granted "${claim}" to ${target}`));
+      output.writeln(output.dim(`Saved to: ${configPath}`));
+      return { success: true };
+    } catch (error) {
+      output.printError(`Failed to grant claim: ${(error as Error).message}`);
+      return { success: false, exitCode: 1 };
+    }
   },
 };
 
@@ -265,13 +383,49 @@ const revokeCommand: Command = {
       return { success: false, exitCode: 1 };
     }
 
-    output.writeln();
-    const spinner = output.createSpinner({ text: 'Revoking claim...', spinner: 'dots' });
-    spinner.start();
-    await new Promise(r => setTimeout(r, 300));
-    spinner.succeed('Claim revoked');
+    if (!user && !role) {
+      output.printError('Either user or role is required');
+      return { success: false, exitCode: 1 };
+    }
 
-    return { success: true };
+    try {
+      const { config, path: configPath } = loadClaimsConfig();
+      let removed = false;
+
+      if (user && config.users?.[user]?.claims) {
+        const idx = config.users[user].claims!.indexOf(claim);
+        if (idx !== -1) {
+          config.users[user].claims!.splice(idx, 1);
+          removed = true;
+        }
+      }
+
+      if (role && config.roles?.[role]) {
+        const idx = config.roles[role].indexOf(claim);
+        if (idx !== -1) {
+          config.roles[role].splice(idx, 1);
+          removed = true;
+        }
+      }
+
+      if (!removed) {
+        const target = user ? `user "${user}"` : `role "${role}"`;
+        output.writeln();
+        output.printError(`Claim "${claim}" not found on ${target}`);
+        return { success: false, exitCode: 1 };
+      }
+
+      saveClaimsConfig(config, configPath);
+
+      output.writeln();
+      const target = user ? `user "${user}"` : `role "${role}"`;
+      output.writeln(output.success(`Revoked "${claim}" from ${target}`));
+      output.writeln(output.dim(`Saved to: ${configPath}`));
+      return { success: true };
+    } catch (error) {
+      output.printError(`Failed to revoke claim: ${(error as Error).message}`);
+      return { success: false, exitCode: 1 };
+    }
   },
 };
 
@@ -288,46 +442,98 @@ const rolesCommand: Command = {
     { command: 'claude-flow claims roles -a show -n admin', description: 'Show role details' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const action = ctx.flags.action as string || 'list';
+    const action = (ctx.flags.action as string) || 'list';
     const name = ctx.flags.name as string;
 
-    output.writeln();
-    output.writeln(output.bold('Roles'));
-    output.writeln(output.dim('─'.repeat(60)));
+    try {
+      const { config, path: configPath } = loadClaimsConfig();
 
-    if (action === 'show' && name) {
-      output.printBox([
-        `Role: ${name}`,
-        `Description: Full system access`,
-        ``,
-        `Claims:`,
-        `  - swarm:* (all swarm operations)`,
-        `  - agent:* (all agent operations)`,
-        `  - memory:* (all memory operations)`,
-        `  - admin:* (administrative functions)`,
-        ``,
-        `Members: 2`,
-        `Created: 2024-01-01`,
-      ].join('\n'), 'Role Details');
-    } else {
-      output.printTable({
-        columns: [
-          { key: 'role', header: 'Role', width: 15 },
-          { key: 'description', header: 'Description', width: 30 },
-          { key: 'claims', header: 'Claims', width: 12 },
-          { key: 'members', header: 'Members', width: 10 },
-        ],
-        data: [
-          { role: output.highlight('admin'), description: 'Full system access', claims: '15', members: '2' },
-          { role: output.highlight('developer'), description: 'Development operations', claims: '10', members: '12' },
-          { role: output.highlight('operator'), description: 'Operational tasks', claims: '8', members: '5' },
-          { role: output.highlight('viewer'), description: 'Read-only access', claims: '3', members: '25' },
-          { role: output.highlight('guest'), description: 'Limited access', claims: '1', members: '100' },
-        ],
-      });
+      if (action === 'list') {
+        const roles = config.roles || {};
+        const entries = Object.entries(roles);
+        if (entries.length === 0) {
+          output.writeln();
+          output.writeln(output.dim('No roles defined.'));
+          return { success: true };
+        }
+        output.writeln();
+        output.writeln(output.bold('Roles'));
+        output.printTable({
+          columns: [
+            { key: 'role', header: 'Role' },
+            { key: 'count', header: 'Claims' },
+            { key: 'claims', header: 'Claims List', width: 60 },
+          ],
+          data: entries.map(([roleName, claims]) => ({
+            role: roleName,
+            count: claims.length,
+            claims: claims.join(', '),
+          })),
+          border: true,
+          header: true,
+        });
+        output.writeln(output.dim(`Config: ${configPath}`));
+        return { success: true };
+      }
+
+      if (action === 'show') {
+        if (!name) {
+          output.printError('Role name is required (use -n <name>)');
+          return { success: false, exitCode: 1 };
+        }
+        const claims = config.roles?.[name];
+        if (!claims) {
+          output.printError(`Role "${name}" not found`);
+          return { success: false, exitCode: 1 };
+        }
+        output.writeln();
+        output.writeln(output.bold(`Role: ${name}`));
+        output.writeln(output.dim('─'.repeat(40)));
+        output.writeln(`Claims (${claims.length}):`);
+        output.printList(claims);
+        return { success: true };
+      }
+
+      if (action === 'create') {
+        if (!name) {
+          output.printError('Role name is required (use -n <name>)');
+          return { success: false, exitCode: 1 };
+        }
+        if (!config.roles) config.roles = {};
+        if (config.roles[name]) {
+          output.printError(`Role "${name}" already exists`);
+          return { success: false, exitCode: 1 };
+        }
+        config.roles[name] = [];
+        saveClaimsConfig(config, configPath);
+        output.writeln();
+        output.writeln(output.success(`Created role "${name}"`));
+        output.writeln(output.dim('Use "claims grant -c <claim> -r ' + name + '" to add claims.'));
+        return { success: true };
+      }
+
+      if (action === 'delete') {
+        if (!name) {
+          output.printError('Role name is required (use -n <name>)');
+          return { success: false, exitCode: 1 };
+        }
+        if (!config.roles?.[name]) {
+          output.printError(`Role "${name}" not found`);
+          return { success: false, exitCode: 1 };
+        }
+        delete config.roles[name];
+        saveClaimsConfig(config, configPath);
+        output.writeln();
+        output.writeln(output.success(`Deleted role "${name}"`));
+        return { success: true };
+      }
+
+      output.printError(`Unknown action "${action}". Use: list, create, delete, show`);
+      return { success: false, exitCode: 1 };
+    } catch (error) {
+      output.printError(`Failed to manage roles: ${(error as Error).message}`);
+      return { success: false, exitCode: 1 };
     }
-
-    return { success: true };
   },
 };
 
@@ -344,27 +550,94 @@ const policiesCommand: Command = {
     { command: 'claude-flow claims policies -a create -n rate-limit', description: 'Create policy' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    output.writeln();
-    output.writeln(output.bold('Claim Policies'));
-    output.writeln(output.dim('─'.repeat(60)));
+    const action = (ctx.flags.action as string) || 'list';
+    const name = ctx.flags.name as string;
 
-    output.printTable({
-      columns: [
-        { key: 'policy', header: 'Policy', width: 20 },
-        { key: 'type', header: 'Type', width: 15 },
-        { key: 'condition', header: 'Condition', width: 30 },
-        { key: 'status', header: 'Status', width: 12 },
-      ],
-      data: [
-        { policy: 'rate-limit', type: 'Throttle', condition: 'Max 100 req/min', status: output.success('Active') },
-        { policy: 'geo-restrict', type: 'Location', condition: 'US, EU only', status: output.success('Active') },
-        { policy: 'time-window', type: 'Temporal', condition: 'Business hours', status: output.dim('Inactive') },
-        { policy: 'ip-allowlist', type: 'Network', condition: '10.0.0.0/8', status: output.success('Active') },
-        { policy: 'mfa-required', type: 'Auth', condition: 'Admin operations', status: output.success('Active') },
-      ],
-    });
+    try {
+      const { config, path: configPath } = loadClaimsConfig();
 
-    return { success: true };
+      if (action === 'list') {
+        output.writeln();
+        output.writeln(output.bold('Policies'));
+        output.writeln(output.dim('─'.repeat(50)));
+
+        // Default claims as a policy
+        const defaults = config.defaultClaims || [];
+        output.writeln();
+        output.writeln(output.bold('Default Policy'));
+        if (defaults.length > 0) {
+          output.printList(defaults);
+        } else {
+          output.writeln(output.dim('  (no default claims)'));
+        }
+
+        // Role-based policies
+        const roles = config.roles || {};
+        const entries = Object.entries(roles);
+        if (entries.length > 0) {
+          output.writeln();
+          output.writeln(output.bold('Role-Based Policies'));
+          output.printTable({
+            columns: [
+              { key: 'policy', header: 'Policy (Role)' },
+              { key: 'count', header: 'Claims' },
+              { key: 'preview', header: 'Preview', width: 50 },
+            ],
+            data: entries.map(([roleName, claims]) => ({
+              policy: roleName,
+              count: claims.length,
+              preview: claims.slice(0, 4).join(', ') + (claims.length > 4 ? ', ...' : ''),
+            })),
+            border: true,
+            header: true,
+          });
+        }
+
+        output.writeln();
+        output.writeln(output.dim(`Config: ${configPath}`));
+        return { success: true };
+      }
+
+      if (action === 'create') {
+        if (!name) {
+          output.printError('Policy name is required (use -n <name>)');
+          return { success: false, exitCode: 1 };
+        }
+        if (!config.roles) config.roles = {};
+        if (config.roles[name]) {
+          output.printError(`Policy "${name}" already exists`);
+          return { success: false, exitCode: 1 };
+        }
+        config.roles[name] = [];
+        saveClaimsConfig(config, configPath);
+        output.writeln();
+        output.writeln(output.success(`Created policy "${name}"`));
+        output.writeln(output.dim('Use "claims grant -c <claim> -r ' + name + '" to add claims.'));
+        return { success: true };
+      }
+
+      if (action === 'delete') {
+        if (!name) {
+          output.printError('Policy name is required (use -n <name>)');
+          return { success: false, exitCode: 1 };
+        }
+        if (!config.roles?.[name]) {
+          output.printError(`Policy "${name}" not found`);
+          return { success: false, exitCode: 1 };
+        }
+        delete config.roles[name];
+        saveClaimsConfig(config, configPath);
+        output.writeln();
+        output.writeln(output.success(`Deleted policy "${name}"`));
+        return { success: true };
+      }
+
+      output.printError(`Unknown action "${action}". Use: list, create, delete`);
+      return { success: false, exitCode: 1 };
+    } catch (error) {
+      output.printError(`Failed to manage policies: ${(error as Error).message}`);
+      return { success: false, exitCode: 1 };
+    }
   },
 };
 

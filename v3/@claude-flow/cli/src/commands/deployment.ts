@@ -7,106 +7,295 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
+// ============================================
+// Deployment State Types
+// ============================================
+
+interface DeploymentEnv {
+  name: string;
+  type: string; // 'local' | 'staging' | 'production'
+  url?: string;
+  createdAt: string;
+}
+
+interface DeploymentRecord {
+  id: string;
+  environment: string;
+  version: string;
+  status: 'deployed' | 'rolled-back' | 'failed';
+  timestamp: string;
+  description?: string;
+}
+
+interface DeploymentState {
+  environments: Record<string, DeploymentEnv>;
+  history: DeploymentRecord[];
+  activeDeployment?: string;
+}
+
+// ============================================
+// State Helpers
+// ============================================
+
+function getStateDir(cwd: string): string {
+  return path.join(cwd, '.claude-flow');
+}
+
+function getStatePath(cwd: string): string {
+  return path.join(getStateDir(cwd), 'deployments.json');
+}
+
+function emptyState(): DeploymentState {
+  return { environments: {}, history: [], activeDeployment: undefined };
+}
+
+function loadDeploymentState(cwd: string): DeploymentState {
+  const filePath = getStatePath(cwd);
+  if (!fs.existsSync(filePath)) {
+    return emptyState();
+  }
+  try {
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    return JSON.parse(raw) as DeploymentState;
+  } catch {
+    return emptyState();
+  }
+}
+
+function saveDeploymentState(cwd: string, state: DeploymentState): void {
+  const dir = getStateDir(cwd);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  const filePath = getStatePath(cwd);
+  const tmpPath = filePath + '.tmp';
+  fs.writeFileSync(tmpPath, JSON.stringify(state, null, 2), 'utf-8');
+  fs.renameSync(tmpPath, filePath);
+}
+
+function generateId(): string {
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `dep-${ts}-${rand}`;
+}
+
+function readProjectVersion(cwd: string): string | null {
+  const pkgPath = path.join(cwd, 'package.json');
+  if (!fs.existsSync(pkgPath)) {
+    return null;
+  }
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    return pkg.version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ============================================
 // Deploy subcommand
+// ============================================
+
 const deployCommand: Command = {
   name: 'deploy',
   description: 'Deploy to target environment',
   options: [
     { name: 'env', short: 'e', type: 'string', description: 'Environment: dev, staging, prod', default: 'staging' },
-    { name: 'version', short: 'v', type: 'string', description: 'Version to deploy', default: 'latest' },
+    { name: 'version', short: 'v', type: 'string', description: 'Version to deploy' },
     { name: 'dry-run', short: 'd', type: 'boolean', description: 'Simulate deployment without changes' },
-    { name: 'force', short: 'f', type: 'boolean', description: 'Force deployment without checks' },
-    { name: 'rollback-on-fail', type: 'boolean', description: 'Auto rollback on failure', default: 'true' },
+    { name: 'description', type: 'string', description: 'Deployment description' },
   ],
   examples: [
     { command: 'claude-flow deployment deploy -e prod', description: 'Deploy to production' },
     { command: 'claude-flow deployment deploy --dry-run', description: 'Simulate deployment' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const env = ctx.flags.env as string || 'staging';
-    const version = ctx.flags.version as string || 'latest';
-    const dryRun = ctx.flags['dry-run'] as boolean;
+    try {
+      const envName = String(ctx.flags['env'] || 'staging');
+      const dryRun = Boolean(ctx.flags['dry-run']);
+      const description = ctx.flags['description'] ? String(ctx.flags['description']) : undefined;
 
-    output.writeln();
-    output.writeln(output.bold(`Deployment: ${env.toUpperCase()}`));
-    output.writeln(output.dim('─'.repeat(50)));
+      let version = ctx.flags['version'] ? String(ctx.flags['version']) : null;
+      if (!version) {
+        version = readProjectVersion(ctx.cwd) || '0.0.0';
+      }
 
-    if (dryRun) {
-      output.printWarning('DRY RUN - No changes will be made');
+      const state = loadDeploymentState(ctx.cwd);
+
+      // Ensure environment exists; auto-create if it doesn't
+      if (!state.environments[envName]) {
+        state.environments[envName] = {
+          name: envName,
+          type: envName === 'prod' || envName === 'production' ? 'production' : envName === 'staging' ? 'staging' : 'local',
+          createdAt: new Date().toISOString(),
+        };
+      }
+
+      const record: DeploymentRecord = {
+        id: generateId(),
+        environment: envName,
+        version,
+        status: 'deployed',
+        timestamp: new Date().toISOString(),
+        description,
+      };
+
+      if (dryRun) {
+        output.writeln();
+        output.printInfo('Dry run - no changes will be made');
+        output.writeln();
+        output.writeln(output.bold('Deployment Preview'));
+        output.printTable({
+          columns: [
+            { key: 'field', header: 'Field' },
+            { key: 'value', header: 'Value' },
+          ],
+          data: [
+            { field: 'ID', value: record.id },
+            { field: 'Environment', value: envName },
+            { field: 'Version', value: version },
+            { field: 'Status', value: 'deployed (dry-run)' },
+            { field: 'Description', value: description || '-' },
+          ],
+        });
+        return { success: true };
+      }
+
+      state.history.push(record);
+      state.activeDeployment = record.id;
+      saveDeploymentState(ctx.cwd, state);
+
       output.writeln();
+      output.printSuccess(`Deployed version ${version} to ${envName}`);
+      output.writeln();
+      output.printTable({
+        columns: [
+          { key: 'field', header: 'Field' },
+          { key: 'value', header: 'Value' },
+        ],
+        data: [
+          { field: 'ID', value: record.id },
+          { field: 'Environment', value: envName },
+          { field: 'Version', value: version },
+          { field: 'Status', value: record.status },
+          { field: 'Timestamp', value: record.timestamp },
+          { field: 'Description', value: description || '-' },
+        ],
+      });
+
+      return { success: true, data: record };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      output.printError('Deploy failed', msg);
+      return { success: false, exitCode: 1 };
     }
-
-    const steps = [
-      { name: 'Pre-flight checks', status: 'running' },
-      { name: 'Build artifacts', status: 'pending' },
-      { name: 'Run tests', status: 'pending' },
-      { name: 'Security scan', status: 'pending' },
-      { name: 'Deploy to target', status: 'pending' },
-      { name: 'Health checks', status: 'pending' },
-      { name: 'DNS update', status: 'pending' },
-    ];
-
-    for (const step of steps) {
-      const spinner = output.createSpinner({ text: step.name + '...', spinner: 'dots' });
-      spinner.start();
-      await new Promise(r => setTimeout(r, 400));
-      spinner.succeed(step.name);
-    }
-
-    output.writeln();
-    output.printBox([
-      `Environment: ${env}`,
-      `Version: ${version}`,
-      `Status: ${output.success('Deployed')}`,
-      ``,
-      `URL: https://${env === 'prod' ? 'api' : env}.claude-flow.io`,
-      `Deployed at: ${new Date().toISOString()}`,
-      `Duration: 12.4s`,
-    ].join('\n'), 'Deployment Complete');
-
-    return { success: true };
   },
 };
 
+// ============================================
 // Status subcommand
+// ============================================
+
 const statusCommand: Command = {
   name: 'status',
   description: 'Check deployment status across environments',
   options: [
     { name: 'env', short: 'e', type: 'string', description: 'Specific environment to check' },
-    { name: 'watch', short: 'w', type: 'boolean', description: 'Watch for changes' },
   ],
   examples: [
     { command: 'claude-flow deployment status', description: 'Show all environments' },
     { command: 'claude-flow deployment status -e prod', description: 'Check production' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    output.writeln();
-    output.writeln(output.bold('Deployment Status'));
-    output.writeln(output.dim('─'.repeat(70)));
+    try {
+      const state = loadDeploymentState(ctx.cwd);
+      const filterEnv = ctx.flags['env'] ? String(ctx.flags['env']) : null;
 
-    output.printTable({
-      columns: [
-        { key: 'env', header: 'Environment', width: 12 },
-        { key: 'version', header: 'Version', width: 18 },
-        { key: 'status', header: 'Status', width: 12 },
-        { key: 'health', header: 'Health', width: 10 },
-        { key: 'deployed', header: 'Deployed', width: 20 },
-      ],
-      data: [
-        { env: 'Production', version: 'v3.0.0-alpha.10', status: output.success('Active'), health: output.success('100%'), deployed: '2h ago' },
-        { env: 'Staging', version: 'v3.0.0-alpha.11', status: output.success('Active'), health: output.success('100%'), deployed: '30m ago' },
-        { env: 'Development', version: 'v3.0.0-alpha.12', status: output.success('Active'), health: output.success('100%'), deployed: '5m ago' },
-        { env: 'Preview', version: 'pr-456', status: output.warning('Deploying'), health: output.dim('--'), deployed: 'In progress' },
-      ],
-    });
+      output.writeln();
+      output.writeln(output.bold('Deployment Status'));
+      output.writeln();
 
-    return { success: true };
+      // Active deployment
+      if (state.activeDeployment) {
+        const active = state.history.find(r => r.id === state.activeDeployment);
+        if (active) {
+          output.printInfo(`Active deployment: ${active.id} (v${active.version} on ${active.environment})`);
+        }
+      } else {
+        output.writeln(output.dim('No active deployment'));
+      }
+
+      // Environments table
+      const envEntries = Object.values(state.environments);
+      if (filterEnv) {
+        const env = state.environments[filterEnv];
+        if (!env) {
+          output.printWarning(`Environment '${filterEnv}' not found`);
+          return { success: true };
+        }
+        output.writeln();
+        output.writeln(output.bold('Environment'));
+        output.printTable({
+          columns: [
+            { key: 'name', header: 'Name' },
+            { key: 'type', header: 'Type' },
+            { key: 'url', header: 'URL' },
+            { key: 'createdAt', header: 'Created' },
+          ],
+          data: [{ name: env.name, type: env.type, url: env.url || '-', createdAt: env.createdAt }],
+        });
+      } else if (envEntries.length > 0) {
+        output.writeln();
+        output.writeln(output.bold('Environments'));
+        output.printTable({
+          columns: [
+            { key: 'name', header: 'Name' },
+            { key: 'type', header: 'Type' },
+            { key: 'url', header: 'URL' },
+            { key: 'createdAt', header: 'Created' },
+          ],
+          data: envEntries.map(e => ({ name: e.name, type: e.type, url: e.url || '-', createdAt: e.createdAt })),
+        });
+      } else {
+        output.writeln(output.dim('No environments configured'));
+      }
+
+      // Recent history (last 5)
+      let recent = [...state.history].reverse().slice(0, 5);
+      if (filterEnv) {
+        recent = recent.filter(r => r.environment === filterEnv);
+      }
+      if (recent.length > 0) {
+        output.writeln();
+        output.writeln(output.bold('Recent Deployments'));
+        output.printTable({
+          columns: [
+            { key: 'id', header: 'ID' },
+            { key: 'environment', header: 'Env' },
+            { key: 'version', header: 'Version' },
+            { key: 'status', header: 'Status' },
+            { key: 'timestamp', header: 'Time' },
+          ],
+          data: recent.map(r => ({ ...r })),
+        });
+      }
+
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      output.printError('Status check failed', msg);
+      return { success: false, exitCode: 1 };
+    }
   },
 };
 
+// ============================================
 // Rollback subcommand
+// ============================================
+
 const rollbackCommand: Command = {
   name: 'rollback',
   description: 'Rollback to previous deployment',
@@ -120,44 +309,92 @@ const rollbackCommand: Command = {
     { command: 'claude-flow deployment rollback -e prod -v v3.0.0', description: 'Rollback to specific version' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const env = ctx.flags.env as string;
-    const version = ctx.flags.version as string;
+    try {
+      const envName = String(ctx.flags['env'] || '');
+      if (!envName) {
+        output.printError('Environment is required', 'Use --env or -e to specify');
+        return { success: false, exitCode: 1 };
+      }
 
-    if (!env) {
-      output.printError('Environment is required for rollback');
+      const targetVersion = ctx.flags['version'] ? String(ctx.flags['version']) : null;
+      const state = loadDeploymentState(ctx.cwd);
+
+      // Find deployments for this environment in reverse chronological order
+      const envHistory = state.history
+        .filter(r => r.environment === envName && r.status === 'deployed')
+        .reverse();
+
+      if (envHistory.length < 2 && !targetVersion) {
+        output.printWarning('No previous deployment to rollback to');
+        return { success: false, exitCode: 1 };
+      }
+
+      let rollbackTo: DeploymentRecord | undefined;
+
+      if (targetVersion) {
+        rollbackTo = envHistory.find(r => r.version === targetVersion);
+        if (!rollbackTo) {
+          output.printError(`Version '${targetVersion}' not found in deployment history for '${envName}'`);
+          return { success: false, exitCode: 1 };
+        }
+      } else {
+        // Rollback to the deployment before the most recent one
+        rollbackTo = envHistory[1];
+      }
+
+      // Mark current active deployment for this env as rolled-back
+      const current = envHistory[0];
+      if (current) {
+        const idx = state.history.findIndex(r => r.id === current.id);
+        if (idx >= 0) {
+          state.history[idx].status = 'rolled-back';
+        }
+      }
+
+      // Create a new record for the rollback
+      const record: DeploymentRecord = {
+        id: generateId(),
+        environment: envName,
+        version: rollbackTo!.version,
+        status: 'deployed',
+        timestamp: new Date().toISOString(),
+        description: `Rollback from ${current?.version || 'unknown'} to ${rollbackTo!.version}`,
+      };
+
+      state.history.push(record);
+      state.activeDeployment = record.id;
+      saveDeploymentState(ctx.cwd, state);
+
+      output.writeln();
+      output.printSuccess(`Rolled back ${envName} to version ${rollbackTo!.version}`);
+      output.writeln();
+      output.printTable({
+        columns: [
+          { key: 'field', header: 'Field' },
+          { key: 'value', header: 'Value' },
+        ],
+        data: [
+          { field: 'Rollback ID', value: record.id },
+          { field: 'Environment', value: envName },
+          { field: 'From Version', value: current?.version || 'unknown' },
+          { field: 'To Version', value: rollbackTo!.version },
+          { field: 'Timestamp', value: record.timestamp },
+        ],
+      });
+
+      return { success: true, data: record };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      output.printError('Rollback failed', msg);
       return { success: false, exitCode: 1 };
     }
-
-    output.writeln();
-    output.writeln(output.bold(`Rollback: ${env.toUpperCase()}`));
-    output.writeln(output.dim('─'.repeat(40)));
-
-    output.printWarning(`Rolling back ${env} to ${version || 'previous version'}`);
-    output.writeln();
-
-    const spinner = output.createSpinner({ text: 'Initiating rollback...', spinner: 'dots' });
-    spinner.start();
-
-    const steps = ['Stopping current deployment', 'Restoring previous version', 'Running health checks', 'Updating DNS'];
-    for (const step of steps) {
-      spinner.setText(step + '...');
-      await new Promise(r => setTimeout(r, 400));
-    }
-
-    spinner.succeed('Rollback complete');
-
-    output.writeln();
-    output.printBox([
-      `Environment: ${env}`,
-      `Rolled back to: ${version || 'v3.0.0-alpha.9'}`,
-      `Status: ${output.success('Active')}`,
-    ].join('\n'), 'Rollback Complete');
-
-    return { success: true };
   },
 };
 
-// History subcommand
+// ============================================
+// History subcommand (logs)
+// ============================================
+
 const historyCommand: Command = {
   name: 'history',
   description: 'View deployment history',
@@ -170,79 +407,175 @@ const historyCommand: Command = {
     { command: 'claude-flow deployment history -e prod', description: 'Production history' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const env = ctx.flags.env as string;
+    try {
+      const state = loadDeploymentState(ctx.cwd);
+      const filterEnv = ctx.flags['env'] ? String(ctx.flags['env']) : null;
+      const limit = Number(ctx.flags['limit']) || 10;
 
-    output.writeln();
-    output.writeln(output.bold(`Deployment History${env ? `: ${env}` : ''}`));
-    output.writeln(output.dim('─'.repeat(80)));
+      let records = [...state.history].reverse();
+      if (filterEnv) {
+        records = records.filter(r => r.environment === filterEnv);
+      }
+      records = records.slice(0, limit);
 
-    output.printTable({
-      columns: [
-        { key: 'id', header: 'ID', width: 10 },
-        { key: 'env', header: 'Env', width: 10 },
-        { key: 'version', header: 'Version', width: 18 },
-        { key: 'status', header: 'Status', width: 12 },
-        { key: 'deployer', header: 'Deployer', width: 12 },
-        { key: 'timestamp', header: 'Timestamp', width: 20 },
-      ],
-      data: [
-        { id: 'dep-123', env: 'prod', version: 'v3.0.0-alpha.10', status: output.success('Success'), deployer: 'ci-bot', timestamp: '2024-01-15 14:30' },
-        { id: 'dep-122', env: 'staging', version: 'v3.0.0-alpha.11', status: output.success('Success'), deployer: 'ci-bot', timestamp: '2024-01-15 14:00' },
-        { id: 'dep-121', env: 'prod', version: 'v3.0.0-alpha.9', status: output.dim('Rolled back'), deployer: 'ci-bot', timestamp: '2024-01-15 12:30' },
-        { id: 'dep-120', env: 'staging', version: 'v3.0.0-alpha.10', status: output.success('Success'), deployer: 'developer', timestamp: '2024-01-15 10:00' },
-        { id: 'dep-119', env: 'dev', version: 'v3.0.0-alpha.10', status: output.error('Failed'), deployer: 'developer', timestamp: '2024-01-15 09:30' },
-      ],
-    });
+      output.writeln();
+      output.writeln(output.bold('Deployment History'));
 
-    return { success: true };
+      if (filterEnv) {
+        output.writeln(output.dim(`Filtered by environment: ${filterEnv}`));
+      }
+      output.writeln();
+
+      if (records.length === 0) {
+        output.writeln(output.dim('No deployment history found'));
+        return { success: true };
+      }
+
+      output.printTable({
+        columns: [
+          { key: 'id', header: 'ID' },
+          { key: 'environment', header: 'Env' },
+          { key: 'version', header: 'Version' },
+          { key: 'status', header: 'Status' },
+          { key: 'timestamp', header: 'Time' },
+          { key: 'description', header: 'Description' },
+        ],
+        data: records.map(r => ({
+          ...r,
+          description: r.description || '-',
+        })),
+      });
+
+      output.writeln();
+      output.writeln(output.dim(`Showing ${records.length} of ${state.history.length} total records`));
+
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      output.printError('Failed to load history', msg);
+      return { success: false, exitCode: 1 };
+    }
   },
 };
 
+// ============================================
 // Environments subcommand
+// ============================================
+
 const environmentsCommand: Command = {
   name: 'environments',
   description: 'Manage deployment environments',
   aliases: ['envs'],
   options: [
-    { name: 'action', short: 'a', type: 'string', description: 'Action: list, create, delete', default: 'list' },
+    { name: 'action', short: 'a', type: 'string', description: 'Action: list, add, remove', default: 'list' },
     { name: 'name', short: 'n', type: 'string', description: 'Environment name' },
+    { name: 'type', short: 't', type: 'string', description: 'Environment type: local, staging, production', default: 'local' },
+    { name: 'url', short: 'u', type: 'string', description: 'Environment URL' },
   ],
   examples: [
     { command: 'claude-flow deployment environments', description: 'List environments' },
-    { command: 'claude-flow deployment envs -a create -n preview', description: 'Create environment' },
+    { command: 'claude-flow deployment envs -a add -n preview -t staging', description: 'Add environment' },
+    { command: 'claude-flow deployment envs -a remove -n preview', description: 'Remove environment' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    output.writeln();
-    output.writeln(output.bold('Deployment Environments'));
-    output.writeln(output.dim('─'.repeat(60)));
+    try {
+      const action = String(ctx.flags['action'] || 'list');
+      const state = loadDeploymentState(ctx.cwd);
 
-    output.printTable({
-      columns: [
-        { key: 'name', header: 'Name', width: 15 },
-        { key: 'url', header: 'URL', width: 30 },
-        { key: 'auto', header: 'Auto Deploy', width: 12 },
-        { key: 'protected', header: 'Protected', width: 12 },
-      ],
-      data: [
-        { name: 'production', url: 'https://api.claude-flow.io', auto: output.error('No'), protected: output.success('Yes') },
-        { name: 'staging', url: 'https://staging.claude-flow.io', auto: output.success('Yes'), protected: output.error('No') },
-        { name: 'development', url: 'https://dev.claude-flow.io', auto: output.success('Yes'), protected: output.error('No') },
-        { name: 'preview/*', url: 'https://pr-*.claude-flow.io', auto: output.success('Yes'), protected: output.error('No') },
-      ],
-    });
+      if (action === 'list') {
+        const envs = Object.values(state.environments);
 
-    return { success: true };
+        output.writeln();
+        output.writeln(output.bold('Deployment Environments'));
+        output.writeln();
+
+        if (envs.length === 0) {
+          output.writeln(output.dim('No environments configured. Use --action add to create one.'));
+          return { success: true };
+        }
+
+        output.printTable({
+          columns: [
+            { key: 'name', header: 'Name' },
+            { key: 'type', header: 'Type' },
+            { key: 'url', header: 'URL' },
+            { key: 'createdAt', header: 'Created' },
+          ],
+          data: envs.map(e => ({ name: e.name, type: e.type, url: e.url || '-', createdAt: e.createdAt })),
+        });
+
+        return { success: true };
+      }
+
+      if (action === 'add') {
+        const name = ctx.flags['name'] ? String(ctx.flags['name']) : null;
+        if (!name) {
+          output.printError('Environment name is required', 'Use --name or -n to specify');
+          return { success: false, exitCode: 1 };
+        }
+        if (state.environments[name]) {
+          output.printWarning(`Environment '${name}' already exists`);
+          return { success: false, exitCode: 1 };
+        }
+
+        const envType = String(ctx.flags['type'] || 'local');
+        const url = ctx.flags['url'] ? String(ctx.flags['url']) : undefined;
+
+        state.environments[name] = {
+          name,
+          type: envType,
+          url,
+          createdAt: new Date().toISOString(),
+        };
+        saveDeploymentState(ctx.cwd, state);
+
+        output.writeln();
+        output.printSuccess(`Added environment '${name}' (${envType})`);
+        if (url) {
+          output.writeln(output.dim(`  URL: ${url}`));
+        }
+        return { success: true };
+      }
+
+      if (action === 'remove') {
+        const name = ctx.flags['name'] ? String(ctx.flags['name']) : null;
+        if (!name) {
+          output.printError('Environment name is required', 'Use --name or -n to specify');
+          return { success: false, exitCode: 1 };
+        }
+        if (!state.environments[name]) {
+          output.printWarning(`Environment '${name}' not found`);
+          return { success: false, exitCode: 1 };
+        }
+
+        delete state.environments[name];
+        saveDeploymentState(ctx.cwd, state);
+
+        output.writeln();
+        output.printSuccess(`Removed environment '${name}'`);
+        return { success: true };
+      }
+
+      output.printError(`Unknown action '${action}'`, 'Valid actions: list, add, remove');
+      return { success: false, exitCode: 1 };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      output.printError('Environments command failed', msg);
+      return { success: false, exitCode: 1 };
+    }
   },
 };
 
+// ============================================
 // Logs subcommand
+// ============================================
+
 const logsCommand: Command = {
   name: 'logs',
   description: 'View deployment logs',
   options: [
     { name: 'deployment', short: 'd', type: 'string', description: 'Deployment ID' },
     { name: 'env', short: 'e', type: 'string', description: 'Environment' },
-    { name: 'follow', short: 'f', type: 'boolean', description: 'Follow log output' },
     { name: 'lines', short: 'n', type: 'number', description: 'Number of lines', default: '50' },
   ],
   examples: [
@@ -250,47 +583,160 @@ const logsCommand: Command = {
     { command: 'claude-flow deployment logs -d dep-123', description: 'View specific deployment' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const env = ctx.flags.env as string || 'staging';
+    try {
+      const state = loadDeploymentState(ctx.cwd);
+      const filterEnv = ctx.flags['env'] ? String(ctx.flags['env']) : null;
+      const deploymentId = ctx.flags['deployment'] ? String(ctx.flags['deployment']) : null;
+      const limit = Number(ctx.flags['lines']) || 50;
 
-    output.writeln();
-    output.writeln(output.bold(`Deployment Logs: ${env}`));
-    output.writeln(output.dim('─'.repeat(60)));
-    output.writeln();
+      output.writeln();
+      output.writeln(output.bold('Deployment Logs'));
+      output.writeln();
 
-    const logs = [
-      { time: '14:30:01', level: 'INFO', msg: 'Starting deployment v3.0.0-alpha.10' },
-      { time: '14:30:02', level: 'INFO', msg: 'Building Docker image...' },
-      { time: '14:30:15', level: 'INFO', msg: 'Image built: sha256:abc123...' },
-      { time: '14:30:16', level: 'INFO', msg: 'Pushing to registry...' },
-      { time: '14:30:25', level: 'INFO', msg: 'Deploying to kubernetes...' },
-      { time: '14:30:30', level: 'INFO', msg: 'Rolling update started' },
-      { time: '14:30:45', level: 'INFO', msg: 'Health check passed (1/3)' },
-      { time: '14:30:50', level: 'INFO', msg: 'Health check passed (2/3)' },
-      { time: '14:30:55', level: 'INFO', msg: 'Health check passed (3/3)' },
-      { time: '14:31:00', level: 'INFO', msg: 'Deployment complete!' },
-    ];
+      let records = [...state.history].reverse();
 
-    for (const log of logs) {
-      const levelColor = log.level === 'ERROR' ? output.error(log.level) :
-                        log.level === 'WARN' ? output.warning(log.level) :
-                        output.dim(log.level);
-      output.writeln(`${output.dim(log.time)} ${levelColor} ${log.msg}`);
+      if (deploymentId) {
+        records = records.filter(r => r.id === deploymentId);
+        if (records.length === 0) {
+          output.printWarning(`Deployment '${deploymentId}' not found`);
+          return { success: false, exitCode: 1 };
+        }
+      }
+
+      if (filterEnv) {
+        records = records.filter(r => r.environment === filterEnv);
+      }
+
+      records = records.slice(0, limit);
+
+      if (records.length === 0) {
+        output.writeln(output.dim('No deployment logs found'));
+        return { success: true };
+      }
+
+      output.printTable({
+        columns: [
+          { key: 'id', header: 'ID' },
+          { key: 'environment', header: 'Env' },
+          { key: 'version', header: 'Version' },
+          { key: 'status', header: 'Status' },
+          { key: 'timestamp', header: 'Time' },
+          { key: 'description', header: 'Description' },
+        ],
+        data: records.map(r => ({
+          ...r,
+          description: r.description || '-',
+        })),
+      });
+
+      output.writeln();
+      output.writeln(output.dim(`${records.length} entries shown`));
+
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      output.printError('Failed to load logs', msg);
+      return { success: false, exitCode: 1 };
     }
-
-    return { success: true };
   },
 };
 
+// ============================================
+// Release subcommand
+// ============================================
+
+const releaseCommand: Command = {
+  name: 'release',
+  description: 'Create a new release deployment',
+  options: [
+    { name: 'version', short: 'v', type: 'string', description: 'Release version' },
+    { name: 'env', short: 'e', type: 'string', description: 'Target environment', default: 'production' },
+    { name: 'description', short: 'd', type: 'string', description: 'Release description' },
+  ],
+  examples: [
+    { command: 'claude-flow deployment release -v 3.5.0', description: 'Release version 3.5.0' },
+    { command: 'claude-flow deployment release -v 3.5.0 -d "Major update"', description: 'Release with description' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    try {
+      const envName = String(ctx.flags['env'] || 'production');
+      const description = ctx.flags['description'] ? String(ctx.flags['description']) : undefined;
+
+      let version = ctx.flags['version'] ? String(ctx.flags['version']) : null;
+      if (!version) {
+        const pkgVersion = readProjectVersion(ctx.cwd);
+        if (!pkgVersion) {
+          output.printError('Version is required', 'Use --version or -v, or ensure package.json has a version field');
+          return { success: false, exitCode: 1 };
+        }
+        version = pkgVersion;
+      }
+
+      const state = loadDeploymentState(ctx.cwd);
+
+      // Ensure environment exists
+      if (!state.environments[envName]) {
+        state.environments[envName] = {
+          name: envName,
+          type: envName === 'prod' || envName === 'production' ? 'production' : 'staging',
+          createdAt: new Date().toISOString(),
+        };
+      }
+
+      const record: DeploymentRecord = {
+        id: generateId(),
+        environment: envName,
+        version,
+        status: 'deployed',
+        timestamp: new Date().toISOString(),
+        description: description || `Release ${version}`,
+      };
+
+      state.history.push(record);
+      state.activeDeployment = record.id;
+      saveDeploymentState(ctx.cwd, state);
+
+      output.writeln();
+      output.printSuccess(`Released version ${version} to ${envName}`);
+      output.writeln();
+      output.printTable({
+        columns: [
+          { key: 'field', header: 'Field' },
+          { key: 'value', header: 'Value' },
+        ],
+        data: [
+          { field: 'Release ID', value: record.id },
+          { field: 'Environment', value: envName },
+          { field: 'Version', value: version },
+          { field: 'Status', value: record.status },
+          { field: 'Timestamp', value: record.timestamp },
+          { field: 'Description', value: record.description || '-' },
+        ],
+      });
+
+      return { success: true, data: record };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      output.printError('Release failed', msg);
+      return { success: false, exitCode: 1 };
+    }
+  },
+};
+
+// ============================================
 // Main deployment command
+// ============================================
+
 export const deploymentCommand: Command = {
   name: 'deployment',
   description: 'Deployment management, environments, rollbacks',
   aliases: ['deploy'],
-  subcommands: [deployCommand, statusCommand, rollbackCommand, historyCommand, environmentsCommand, logsCommand],
+  subcommands: [deployCommand, statusCommand, rollbackCommand, historyCommand, environmentsCommand, logsCommand, releaseCommand],
   examples: [
     { command: 'claude-flow deployment deploy -e prod', description: 'Deploy to production' },
     { command: 'claude-flow deployment status', description: 'Check all environments' },
     { command: 'claude-flow deployment rollback -e prod', description: 'Rollback production' },
+    { command: 'claude-flow deployment release -v 3.5.0', description: 'Create a release' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
@@ -305,6 +751,7 @@ export const deploymentCommand: Command = {
       'history      - View deployment history',
       'environments - Manage deployment environments',
       'logs         - View deployment logs',
+      'release      - Create a new release',
     ]);
     output.writeln();
     output.writeln('Features:');
@@ -315,7 +762,7 @@ export const deploymentCommand: Command = {
       'Deployment previews for PRs',
     ]);
     output.writeln();
-    output.writeln(output.dim('Created with ❤️ by ruv.io'));
+    output.writeln(output.dim('Created with love by ruv.io'));
     return { success: true };
   },
 };

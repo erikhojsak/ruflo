@@ -13,6 +13,7 @@ import type {
   MCPTool,
   MCPToolResult,
   ToolContext,
+  HealthcareRole,
   PatientSimilarityResult,
   DrugInteractionsResult,
   ClinicalPathwayResult,
@@ -52,7 +53,9 @@ function checkAuthorization(toolName: string, context?: ToolContext): boolean {
   if (!context?.userRoles) return true; // No roles = no RBAC enforcement
 
   for (const role of context.userRoles) {
-    const permissions = HealthcareRolePermissions[role];
+    // Normalize role to uppercase to match HealthcareRolePermissions keys
+    const normalizedRole = role.toUpperCase() as HealthcareRole;
+    const permissions = HealthcareRolePermissions[normalizedRole];
     if (permissions?.includes(toolName)) return true;
   }
 

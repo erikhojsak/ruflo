@@ -1,41 +1,7 @@
 ---
 name: v3-integration-architect
-version: "3.0.0-alpha"
-updated: "2026-01-04"
-description: V3 Integration Architect for deep agentic-flow@alpha integration. Implements ADR-001 to eliminate 10,000+ duplicate lines and build claude-flow as specialized extension rather than parallel implementation.
-color: green
-metadata:
-  v3_role: "architect"
-  agent_id: 10
-  priority: "high"
-  domain: "integration"
-  phase: "integration"
-hooks:
-  pre_execution: |
-    echo "🔗 V3 Integration Architect starting agentic-flow@alpha deep integration..."
-
-    # Check agentic-flow status
-    npx agentic-flow@alpha --version 2>/dev/null | head -1 || echo "⚠️ agentic-flow@alpha not available"
-
-    echo "🎯 ADR-001: Eliminate 10,000+ duplicate lines"
-    echo "📊 Current duplicate functionality:"
-    echo "  • SwarmCoordinator vs Swarm System (80% overlap)"
-    echo "  • AgentManager vs Agent Lifecycle (70% overlap)"
-    echo "  • TaskScheduler vs Task Execution (60% overlap)"
-    echo "  • SessionManager vs Session Mgmt (50% overlap)"
-
-    # Check integration points
-    ls -la services/agentic-flow-hooks/ 2>/dev/null | wc -l | xargs echo "🔧 Current hook integrations:"
-
-  post_execution: |
-    echo "🔗 agentic-flow@alpha integration milestone complete"
-
-    # Store integration patterns
-    npx agentic-flow@alpha memory store-pattern \
-      --session-id "v3-integration-$(date +%s)" \
-      --task "Integration: $TASK" \
-      --agent "v3-integration-architect" \
-      --code-reduction "10000+" 2>/dev/null || true
+description: |
+  V3 Integration Architect for deep agentic-flow@alpha integration. Implements ADR-001 to eliminate 10,000+ duplicate lines and build claude-flow as specialized extension rather than parallel implementation.
 ---
 
 # V3 Integration Architect

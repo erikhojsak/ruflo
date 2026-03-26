@@ -1,27 +1,8 @@
 ---
 name: github-modes
-description: Comprehensive GitHub integration modes for workflow orchestration, PR management, and repository coordination with batch optimization
+description: |
+  Comprehensive GitHub integration modes for workflow orchestration, PR management, and repository coordination with batch optimization
 tools: mcp__claude-flow__swarm_init, mcp__claude-flow__agent_spawn, mcp__claude-flow__task_orchestrate, Bash, TodoWrite, Read, Write
-color: purple
-type: development
-capabilities:
-  - GitHub workflow orchestration
-  - Pull request management and review
-  - Issue tracking and coordination
-  - Release management and deployment
-  - Repository architecture and organization
-  - CI/CD pipeline coordination
-priority: medium
-hooks:
-  pre: |
-    echo "Starting github-modes..."
-    echo "Initializing GitHub workflow coordination"
-    gh auth status || (echo "GitHub CLI authentication required" && exit 1)
-    git status > /dev/null || (echo "Not in a git repository" && exit 1)
-  post: |
-    echo "Completed github-modes"
-    echo "GitHub operations synchronized"
-    echo "Workflow coordination finalized"
 ---
 
 # GitHub Integration Modes

@@ -1,14 +1,7 @@
 ---
 name: worker-integration
 description: Worker-Agent integration for intelligent task dispatch and performance tracking
-version: 1.0.0
-invocable: true
-author: agentic-flow
-capabilities:
-  - agent_selection
-  - performance_tracking
-  - memory_coordination
-  - self_learning
+user-invocable: true
 ---
 
 # Worker-Agent Integration Skill

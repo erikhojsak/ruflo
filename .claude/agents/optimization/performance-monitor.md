@@ -1,7 +1,5 @@
 ---
 name: Performance Monitor
-type: agent
-category: optimization
 description: Real-time metrics collection, bottleneck analysis, SLA monitoring and anomaly detection
 ---
 

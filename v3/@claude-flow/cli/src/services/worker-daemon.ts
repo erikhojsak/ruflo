@@ -11,7 +11,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, unlinkSync } from 'fs';
 import { cpus } from 'os';
 import { join } from 'path';
 import {
@@ -103,8 +103,9 @@ const DEFAULT_WORKERS: WorkerConfigInternal[] = [
   { type: 'document', intervalMs: 60 * 60 * 1000, offsetMs: 0, priority: 'low', description: 'Auto-documentation', enabled: false },
 ];
 
-// Worker timeout (5 minutes max per worker)
-const DEFAULT_WORKER_TIMEOUT_MS = 5 * 60 * 1000;
+// Worker timeout — must exceed the longest per-worker headless timeout (15 min for audit/refactor).
+// Previously 5 min, which caused orphan processes when daemon timeout fired before executor timeout (#1117).
+const DEFAULT_WORKER_TIMEOUT_MS = 16 * 60 * 1000;
 
 /**
  * Worker Daemon - Manages background workers with Node.js
@@ -278,7 +279,15 @@ export class WorkerDaemon extends EventEmitter {
     minFreeMemoryPercent?: number;
   } {
     const configPath = join(claudeFlowDir, 'config.json');
-    if (!existsSync(configPath)) return {};
+    if (!existsSync(configPath)) {
+      // Warn if config.yaml exists but config.json does not (#1395 Bug 4)
+      const yamlPath = join(claudeFlowDir, 'config.yaml');
+      const ymlPath = join(claudeFlowDir, 'config.yml');
+      if (existsSync(yamlPath) || existsSync(ymlPath)) {
+        this.log('warn', `Found ${existsSync(yamlPath) ? 'config.yaml' : 'config.yml'} but daemon reads only config.json — YAML config is being ignored. Convert to JSON or create config.json.`);
+      }
+      return {};
+    }
     try {
       const raw = JSON.parse(readFileSync(configPath, 'utf-8'));
       // Support both flat keys at root and nested under scopes.project
@@ -434,6 +443,48 @@ export class WorkerDaemon extends EventEmitter {
   }
 
   /**
+   * Get the PID file path for singleton enforcement (#1395 Bug 3).
+   */
+  private get pidFile(): string {
+    return join(this.projectRoot, '.claude-flow', 'daemon.pid');
+  }
+
+  /**
+   * Check if another daemon instance is already running.
+   * Returns the existing PID if alive, or null if no daemon is running.
+   */
+  private checkExistingDaemon(): number | null {
+    if (!existsSync(this.pidFile)) return null;
+    try {
+      const pid = parseInt(readFileSync(this.pidFile, 'utf-8').trim(), 10);
+      if (isNaN(pid)) return null;
+      // Check if process is alive (signal 0 = existence check)
+      process.kill(pid, 0);
+      return pid; // Process is alive
+    } catch {
+      // Process is dead — clean up stale PID file
+      try { unlinkSync(this.pidFile); } catch { /* ignore */ }
+      return null;
+    }
+  }
+
+  /**
+   * Write PID file for singleton enforcement.
+   */
+  private writePidFile(): void {
+    const dir = join(this.projectRoot, '.claude-flow');
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    writeFileSync(this.pidFile, String(process.pid), 'utf-8');
+  }
+
+  /**
+   * Remove PID file on shutdown.
+   */
+  private removePidFile(): void {
+    try { unlinkSync(this.pidFile); } catch { /* ignore */ }
+  }
+
+  /**
    * Start the daemon and all enabled workers
    */
   async start(): Promise<void> {
@@ -442,8 +493,17 @@ export class WorkerDaemon extends EventEmitter {
       return;
     }
 
+    // PID singleton enforcement (#1395 Bug 3): prevent daemon accumulation
+    const existingPid = this.checkExistingDaemon();
+    if (existingPid !== null) {
+      this.log('info', `Daemon already running (PID: ${existingPid}), skipping start`);
+      this.emit('warning', `Daemon already running (PID: ${existingPid})`);
+      return;
+    }
+
     this.running = true;
     this.startedAt = new Date();
+    this.writePidFile();
     this.emit('started', { pid: process.pid, startedAt: this.startedAt });
 
     // Schedule all enabled workers
@@ -477,6 +537,7 @@ export class WorkerDaemon extends EventEmitter {
     this.timers.clear();
 
     this.running = false;
+    this.removePidFile();
     this.saveState();
     this.emit('stopped', { stoppedAt: new Date() });
     this.log('info', 'Daemon stopped');

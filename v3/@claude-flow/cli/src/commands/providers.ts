@@ -7,6 +7,7 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import { configManager } from '../services/config-file-manager.js';
 
 // List subcommand
 const listCommand: Command = {
@@ -63,33 +64,61 @@ const configureCommand: Command = {
     { command: 'claude-flow providers configure -p anthropic -m claude-3.5-sonnet', description: 'Set default model' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const provider = ctx.flags.provider as string;
-    const hasKey = ctx.flags.key as string;
-    const model = ctx.flags.model as string;
+    try {
+      const provider = (ctx.flags.provider as string) || (ctx.args && ctx.args[0]) || '';
+      const apiKey = ctx.flags.key as string | undefined;
+      const model = ctx.flags.model as string | undefined;
+      const endpoint = ctx.flags.endpoint as string | undefined;
 
-    if (!provider) {
-      output.printError('Provider name is required');
+      if (!provider) {
+        output.printError('Provider name is required. Use -p <name> or pass as first argument.');
+        return { success: false, exitCode: 1 };
+      }
+
+      const cwd = process.cwd();
+      const config = configManager.getConfig(cwd);
+
+      // Ensure agents.providers array exists
+      const agents = (config.agents ?? {}) as Record<string, unknown>;
+      const providers = (agents.providers ?? []) as Array<Record<string, unknown>>;
+
+      // Find existing provider entry or create a new one
+      let entry = providers.find(
+        (p) => typeof p.name === 'string' && p.name.toLowerCase() === provider.toLowerCase(),
+      );
+
+      if (!entry) {
+        entry = { name: provider, enabled: true };
+        providers.push(entry);
+      }
+
+      // Apply supplied settings
+      if (apiKey !== undefined) entry.apiKey = apiKey;
+      if (model !== undefined) entry.model = model;
+      if (endpoint !== undefined) entry.baseUrl = endpoint;
+
+      agents.providers = providers;
+      configManager.set(cwd, 'agents.providers', providers);
+
+      output.writeln();
+      output.writeln(output.bold(`Configured: ${provider}`));
+      output.writeln(output.dim('─'.repeat(40)));
+
+      if (apiKey) output.writeln(`  API Key : ${apiKey.slice(0, 6)}...${apiKey.slice(-4)}`);
+      if (model) output.writeln(`  Model   : ${model}`);
+      if (endpoint) output.writeln(`  Endpoint: ${endpoint}`);
+      if (!apiKey && !model && !endpoint) {
+        output.writeln(`  Provider "${provider}" registered (no settings changed).`);
+      }
+
+      output.writeln();
+      output.writeln(output.success(`Provider "${provider}" configuration saved.`));
+      return { success: true };
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      output.printError(`Failed to configure provider: ${msg}`);
       return { success: false, exitCode: 1 };
     }
-
-    output.writeln();
-    output.writeln(output.bold(`Configure: ${provider}`));
-    output.writeln(output.dim('─'.repeat(40)));
-
-    const spinner = output.createSpinner({ text: 'Updating configuration...', spinner: 'dots' });
-    spinner.start();
-    await new Promise(r => setTimeout(r, 500));
-    spinner.succeed('Configuration updated');
-
-    output.writeln();
-    output.printBox([
-      `Provider: ${provider}`,
-      `API Key: ${hasKey ? '••••••••' + (hasKey as string).slice(-4) : 'Not set'}`,
-      `Model: ${model || 'Default'}`,
-      `Status: Active`,
-    ].join('\n'), 'Configuration');
-
-    return { success: true };
   },
 };
 
@@ -106,28 +135,131 @@ const testCommand: Command = {
     { command: 'claude-flow providers test --all', description: 'Test all providers' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const provider = ctx.flags.provider as string;
-    const testAll = ctx.flags.all as boolean;
+    try {
+      const provider = (ctx.flags.provider as string) || (ctx.args && ctx.args[0]) || '';
+      const testAll = ctx.flags.all as boolean;
 
-    output.writeln();
-    output.writeln(output.bold('Provider Connectivity Test'));
-    output.writeln(output.dim('─'.repeat(50)));
+      output.writeln();
+      output.writeln(output.bold('Provider Connectivity Test'));
+      output.writeln(output.dim('─'.repeat(50)));
 
-    const providers = testAll || !provider
-      ? ['Anthropic', 'OpenAI (LLM)', 'OpenAI (Embedding)', 'Transformers.js', 'Agentic Flow']
-      : [provider];
+      const cwd = process.cwd();
+      const config = configManager.getConfig(cwd);
+      const agents = (config.agents ?? {}) as Record<string, unknown>;
+      const configuredProviders = (agents.providers ?? []) as Array<Record<string, unknown>>;
 
-    for (const p of providers) {
-      const spinner = output.createSpinner({ text: `Testing ${p}...`, spinner: 'dots' });
-      spinner.start();
-      await new Promise(r => setTimeout(r, 300));
-      spinner.succeed(`${p}: Connected`);
+      // Build list of providers to test
+      interface ProviderCheck {
+        name: string;
+        test: () => Promise<{ pass: boolean; reason: string }>;
+      }
+
+      const getConfigApiKey = (name: string): string | undefined => {
+        const entry = configuredProviders.find(
+          (p) => typeof p.name === 'string' && p.name.toLowerCase() === name.toLowerCase(),
+        );
+        return entry?.apiKey as string | undefined;
+      };
+
+      const knownChecks: ProviderCheck[] = [
+        {
+          name: 'Anthropic',
+          test: async () => {
+            const key = process.env.ANTHROPIC_API_KEY || getConfigApiKey('anthropic');
+            if (key) return { pass: true, reason: 'API key found' };
+            return { pass: false, reason: 'ANTHROPIC_API_KEY not set and no apiKey in config' };
+          },
+        },
+        {
+          name: 'OpenAI',
+          test: async () => {
+            const key = process.env.OPENAI_API_KEY || getConfigApiKey('openai');
+            if (key) return { pass: true, reason: 'API key found' };
+            return { pass: false, reason: 'OPENAI_API_KEY not set and no apiKey in config' };
+          },
+        },
+        {
+          name: 'Google',
+          test: async () => {
+            const key = process.env.GOOGLE_API_KEY || getConfigApiKey('google');
+            if (key) return { pass: true, reason: 'API key found' };
+            return { pass: false, reason: 'GOOGLE_API_KEY not set and no apiKey in config' };
+          },
+        },
+        {
+          name: 'Ollama',
+          test: async () => {
+            const entry = configuredProviders.find(
+              (p) => typeof p.name === 'string' && p.name.toLowerCase() === 'ollama',
+            );
+            const baseUrl = (entry?.baseUrl as string) || 'http://localhost:11434';
+            try {
+              const controller = new AbortController();
+              const timeout = setTimeout(() => controller.abort(), 3000);
+              const res = await fetch(baseUrl, { signal: controller.signal });
+              clearTimeout(timeout);
+              if (res.ok) return { pass: true, reason: `Reachable at ${baseUrl}` };
+              return { pass: false, reason: `HTTP ${res.status} from ${baseUrl}` };
+            } catch {
+              return { pass: false, reason: `Unreachable at ${baseUrl}` };
+            }
+          },
+        },
+      ];
+
+      // Filter to requested provider or test all
+      let checksToRun: ProviderCheck[];
+      if (testAll || !provider) {
+        checksToRun = knownChecks;
+      } else {
+        const match = knownChecks.find(
+          (c) => c.name.toLowerCase() === provider.toLowerCase(),
+        );
+        if (match) {
+          checksToRun = [match];
+        } else {
+          // Unknown provider -- check if it has a config entry with an apiKey
+          checksToRun = [
+            {
+              name: provider,
+              test: async () => {
+                const key = getConfigApiKey(provider);
+                if (key) return { pass: true, reason: 'API key found in config' };
+                return { pass: false, reason: 'No API key in environment or config' };
+              },
+            },
+          ];
+        }
+      }
+
+      let anyPassed = false;
+      const results: Array<{ name: string; pass: boolean; reason: string }> = [];
+
+      for (const check of checksToRun) {
+        const result = await check.test();
+        results.push({ name: check.name, ...result });
+        if (result.pass) anyPassed = true;
+      }
+
+      output.writeln();
+      for (const r of results) {
+        const icon = r.pass ? output.success('PASS') : output.error('FAIL');
+        output.writeln(`  ${icon}  ${r.name}: ${r.reason}`);
+      }
+
+      output.writeln();
+      if (anyPassed) {
+        output.writeln(output.success(`${results.filter((r) => r.pass).length}/${results.length} provider(s) passed.`));
+      } else {
+        output.writeln(output.warning('No providers passed connectivity checks.'));
+      }
+
+      return { success: anyPassed };
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      output.printError(`Provider test failed: ${msg}`);
+      return { success: false, exitCode: 1 };
     }
-
-    output.writeln();
-    output.printSuccess(`All ${providers.length} providers connected successfully`);
-
-    return { success: true };
   },
 };
 

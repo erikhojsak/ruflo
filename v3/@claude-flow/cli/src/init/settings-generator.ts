@@ -110,26 +110,15 @@ export function generateSettings(options: InitOptions): object {
       enabled: options.runtime.enableNeural,
     },
     daemon: {
-      autoStart: true,
+      autoStart: false,  // Opt-in only — prevents unintended token consumption (#1427, #1330)
       workers: [
         'map',           // Codebase mapping
         'audit',         // Security auditing (critical priority)
         'optimize',      // Performance optimization (high priority)
-        'consolidate',   // Memory consolidation
-        'testgaps',      // Test coverage gaps
-        'ultralearn',    // Deep knowledge acquisition
-        'deepdive',      // Deep code analysis
-        'document',      // Auto-documentation for ADRs
-        'refactor',      // Refactoring suggestions (DDD alignment)
-        'benchmark',     // Performance benchmarking
       ],
       schedules: {
-        audit: { interval: '1h', priority: 'critical' },
-        optimize: { interval: '30m', priority: 'high' },
-        consolidate: { interval: '2h', priority: 'low' },
-        document: { interval: '1h', priority: 'normal', triggers: ['adr-update', 'api-change'] },
-        deepdive: { interval: '4h', priority: 'normal', triggers: ['complex-change'] },
-        ultralearn: { interval: '1h', priority: 'normal' },
+        audit: { interval: '4h', priority: 'critical' },
+        optimize: { interval: '2h', priority: 'high' },
       },
     },
     learning: {

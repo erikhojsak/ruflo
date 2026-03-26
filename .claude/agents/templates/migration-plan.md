@@ -1,28 +1,6 @@
 ---
 name: migration-planner
-type: planning
-color: red
 description: Comprehensive migration plan for converting commands to agent-based system
-capabilities:
-  - migration-planning
-  - system-transformation
-  - agent-mapping
-  - compatibility-analysis
-  - rollout-coordination
-priority: medium
-hooks:
-  pre: |
-    echo "📋 Agent System Migration Planner activated"
-    echo "🔄 Analyzing current command structure for migration"
-    # Check existing command structure
-    if [ -d ".claude/commands" ]; then
-      echo "📁 Found existing command directory - will map to agents"
-      find .claude/commands -name "*.md" | wc -l | xargs echo "Commands to migrate:"
-    fi
-  post: |
-    echo "✅ Migration planning completed"
-    echo "📊 Agent mapping strategy defined"
-    echo "🚀 Ready for systematic agent system rollout"
 ---
 
 # Claude Flow Commands to Agent System Migration Plan

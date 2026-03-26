@@ -64,7 +64,7 @@ export const ruvllmWasmTools: MCPTool[] = [
       properties: {
         routerId: { type: 'string', description: 'HNSW router ID from ruvllm_hnsw_create' },
         name: { type: 'string', description: 'Pattern name/label' },
-        embedding: { type: 'array', description: 'Float array embedding vector' },
+        embedding: { type: 'array', items: { type: 'number' }, description: 'Float array embedding vector' },
         metadata: { type: 'object', description: 'Optional metadata object' },
       },
       required: ['routerId', 'name', 'embedding'],
@@ -92,7 +92,7 @@ export const ruvllmWasmTools: MCPTool[] = [
       type: 'object' as const,
       properties: {
         routerId: { type: 'string', description: 'HNSW router ID' },
-        query: { type: 'array', description: 'Query embedding vector' },
+        query: { type: 'array', items: { type: 'number' }, description: 'Query embedding vector' },
         k: { type: 'number', description: 'Number of nearest neighbors (default: 3)' },
       },
       required: ['routerId', 'query'],
@@ -224,6 +224,7 @@ export const ruvllmWasmTools: MCPTool[] = [
       properties: {
         messages: {
           type: 'array',
+          items: { type: 'object', properties: { role: { type: 'string' }, content: { type: 'string' } }, required: ['role', 'content'] },
           description: 'Array of {role, content} message objects',
         },
         template: { type: 'string', description: 'Template preset (llama3, mistral, chatml, phi, gemma) or model ID for auto-detection' },
@@ -259,7 +260,7 @@ export const ruvllmWasmTools: MCPTool[] = [
         topP: { type: 'number', description: 'Top-p sampling' },
         topK: { type: 'number', description: 'Top-k sampling' },
         repetitionPenalty: { type: 'number', description: 'Repetition penalty' },
-        stopSequences: { type: 'array', description: 'Stop sequences' },
+        stopSequences: { type: 'array', items: { type: 'string' }, description: 'Stop sequences' },
       },
     },
     handler: async (args: Record<string, unknown>) => {

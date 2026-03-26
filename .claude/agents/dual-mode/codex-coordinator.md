@@ -1,29 +1,6 @@
 ---
 name: codex-coordinator
-type: coordinator
-color: "#9B59B6"
 description: Coordinates multiple headless Codex workers for parallel execution
-capabilities:
-  - swarm_coordination
-  - task_decomposition
-  - result_aggregation
-  - worker_management
-  - parallel_orchestration
-priority: high
-platform: dual
-execution:
-  mode: interactive
-  spawns_workers: true
-  worker_type: codex-worker
-hooks:
-  pre: |
-    echo "🎯 Codex Coordinator initializing parallel workers"
-    # Initialize swarm for tracking
-    npx claude-flow@v3alpha swarm init --topology hierarchical --max-agents ${WORKER_COUNT:-4}
-  post: |
-    echo "✨ Parallel execution complete"
-    # Collect results from all workers
-    npx claude-flow@v3alpha memory list --namespace results
 ---
 
 # Codex Parallel Coordinator

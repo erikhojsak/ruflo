@@ -674,8 +674,9 @@ describe('Config Commands', () => {
 
       const result = await initCmd!.action!(ctx);
 
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('version');
+      // #1425: config init is not yet implemented
+      expect(result.success).toBe(false);
+      expect(result.exitCode).toBe(1);
     });
 
     it('should initialize with V3 mode', async () => {
@@ -684,8 +685,9 @@ describe('Config Commands', () => {
       ctx.flags = { v3: true, _: [] };
       const result = await initCmd!.action!(ctx);
 
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('v3Mode', true);
+      // #1425: config init is not yet implemented
+      expect(result.success).toBe(false);
+      expect(result.exitCode).toBe(1);
     });
   });
 
@@ -719,9 +721,9 @@ describe('Config Commands', () => {
       ctx.flags = { key: 'swarm.maxAgents', value: '20', _: [] };
       const result = await setCmd!.action!(ctx);
 
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('key', 'swarm.maxAgents');
-      expect(result.data).toHaveProperty('value', '20');
+      // #1425: config set is not yet implemented
+      expect(result.success).toBe(false);
+      expect(result.exitCode).toBe(1);
     });
 
     it('should fail without key and value', async () => {
@@ -753,8 +755,9 @@ describe('Config Commands', () => {
       ctx.flags = { force: true, _: [] };
       const result = await resetCmd!.action!(ctx);
 
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('reset', true);
+      // #1425: config reset is not yet implemented
+      expect(result.success).toBe(false);
+      expect(result.exitCode).toBe(1);
     });
   });
 
@@ -765,8 +768,9 @@ describe('Config Commands', () => {
 
       const result = await exportCmd!.action!(ctx);
 
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('config');
+      // #1425: config export is not yet implemented
+      expect(result.success).toBe(false);
+      expect(result.exitCode).toBe(1);
     });
   });
 
@@ -778,8 +782,9 @@ describe('Config Commands', () => {
       ctx.flags = { file: './config.json', _: [] };
       const result = await importCmd!.action!(ctx);
 
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('imported', true);
+      // #1425: config import is not yet implemented
+      expect(result.success).toBe(false);
+      expect(result.exitCode).toBe(1);
     });
 
     it('should fail without file path', async () => {

@@ -1,34 +1,6 @@
 ---
 name: codex-worker
-type: worker
-color: "#00D4AA"
 description: Headless Codex background worker for parallel task execution with self-learning
-capabilities:
-  - code_generation
-  - file_operations
-  - test_writing
-  - documentation
-  - headless_execution
-  - self_learning
-priority: normal
-platform: codex
-execution:
-  mode: headless
-  command: claude -p
-  parallel: true
-  background: true
-limits:
-  max_budget_usd: 0.50
-  timeout_seconds: 300
-hooks:
-  pre: |
-    echo "🤖 Codex worker starting: $TASK"
-    # Search memory for patterns before task
-    npx claude-flow@v3alpha memory search -q "${TASK}" -n patterns --limit 5 2>/dev/null || true
-  post: |
-    echo "✅ Codex worker complete"
-    # Store completion status
-    npx claude-flow@v3alpha memory store -k "worker-${SESSION_ID}-complete" -v "done" -n results 2>/dev/null || true
 ---
 
 # Codex Headless Worker

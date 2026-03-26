@@ -2595,7 +2595,22 @@ export async function deleteEntry(options: {
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeDeleteEntry(options);
-    if (bridgeResult) return bridgeResult;
+    if (bridgeResult) {
+      // #1122: Bridge path must also invalidate the in-memory HNSW index.
+      // Without this, deleted vectors remain as ghost entries in search results.
+      if (bridgeResult.deleted && hnswIndex?.entries) {
+        // Remove the entry from the HNSW entries map by key+namespace composite
+        for (const [id, entry] of hnswIndex.entries) {
+          if ((entry as any)?.key === options.key && ((entry as any)?.namespace ?? 'default') === (options.namespace ?? 'default')) {
+            hnswIndex.entries.delete(id);
+            break;
+          }
+        }
+        saveHNSWMetadata();
+        rebuildSearchIndex();
+      }
+      return bridgeResult;
+    }
   }
 
   // Fallback: raw sql.js

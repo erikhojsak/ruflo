@@ -54,8 +54,42 @@ vi.mock('../src/bridges/gnn-bridge.js', () => ({
   })),
 }));
 
+// Mock bridges for context injection
+const createMockHNSWBridge = () => ({
+  initialized: true,
+  initialize: vi.fn().mockResolvedValue(undefined),
+  searchByFeatures: vi.fn().mockResolvedValue([
+    { patientId: 'p-001', similarity: 0.92, features: {} },
+    { patientId: 'p-002', similarity: 0.85, features: {} },
+  ]),
+  count: vi.fn().mockResolvedValue(1000),
+});
+
+const createMockGNNBridge = () => ({
+  initialized: true,
+  initialize: vi.fn().mockResolvedValue(undefined),
+  checkDrugInteractions: vi.fn().mockReturnValue([
+    {
+      drug1: 'aspirin',
+      drug2: 'warfarin',
+      severity: 'major',
+      description: 'Increased bleeding risk',
+      mechanism: 'Antiplatelet + anticoagulant',
+      management: 'Monitor closely',
+    },
+  ]),
+  getClinicalPathway: vi.fn().mockReturnValue({
+    id: 'pathway-1',
+    name: 'Type 2 Diabetes Management',
+    steps: [
+      { name: 'Initial Assessment', type: 'assessment', description: 'Complete patient assessment' },
+      { name: 'Metformin', type: 'intervention', description: 'Start metformin therapy' },
+    ],
+  }),
+});
+
 // Mock context for testing
-const createMockContext = (overrides = {}) => ({
+const createMockContext = (overrides: Record<string, unknown> = {}) => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -66,6 +100,10 @@ const createMockContext = (overrides = {}) => ({
   userRoles: ['physician'],
   auditLogger: {
     log: vi.fn().mockResolvedValue(undefined),
+  },
+  bridge: {
+    hnsw: createMockHNSWBridge(),
+    gnn: createMockGNNBridge(),
   },
   ...overrides,
 });

@@ -7,6 +7,7 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { select, confirm, input } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
+import { wasmSubcommands } from './agent-wasm.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -994,7 +995,7 @@ function formatLogLevel(level: string): string {
 export const agentCommand: Command = {
   name: 'agent',
   description: 'Agent management commands',
-  subcommands: [spawnCommand, listCommand, statusCommand, stopCommand, metricsCommand, poolCommand, healthCommand, logsCommand],
+  subcommands: [spawnCommand, listCommand, statusCommand, stopCommand, metricsCommand, poolCommand, healthCommand, logsCommand, ...wasmSubcommands],
   options: [],
   examples: [
     { command: 'claude-flow agent spawn -t coder', description: 'Spawn a coder agent' },
@@ -1010,11 +1011,18 @@ export const agentCommand: Command = {
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
-      `${output.highlight('spawn')}    - Spawn a new agent`,
-      `${output.highlight('list')}     - List all active agents`,
-      `${output.highlight('status')}   - Show detailed agent status`,
-      `${output.highlight('stop')}     - Stop a running agent`,
-      `${output.highlight('metrics')}  - Show agent metrics`
+      `${output.highlight('spawn')}         - Spawn a new agent`,
+      `${output.highlight('list')}          - List all active agents`,
+      `${output.highlight('status')}        - Show detailed agent status`,
+      `${output.highlight('stop')}          - Stop a running agent`,
+      `${output.highlight('metrics')}       - Show agent metrics`,
+      `${output.highlight('pool')}          - Manage agent pool`,
+      `${output.highlight('health')}        - Show agent health`,
+      `${output.highlight('logs')}          - Show agent logs`,
+      `${output.highlight('wasm-status')}   - Check WASM runtime availability`,
+      `${output.highlight('wasm-create')}   - Create a WASM-sandboxed agent`,
+      `${output.highlight('wasm-prompt')}   - Send a prompt to a WASM agent`,
+      `${output.highlight('wasm-gallery')}  - List WASM agent gallery templates`,
     ]);
     output.writeln();
     output.writeln('Run "claude-flow agent <subcommand> --help" for subcommand help');

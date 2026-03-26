@@ -75,7 +75,9 @@ export class CommandParser {
       },
       {
         name: 'format',
-        short: 'f',
+        // Note: removed global short flag 'f' — it collides with 50+ subcommand
+        // flags (force, follow, file, feature, full) causing unpredictable behavior
+        // depending on parser resolution order (#1425). Use --format instead.
         description: 'Output format (text, json, table)',
         type: 'string',
         default: 'text',

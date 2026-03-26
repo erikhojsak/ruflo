@@ -1,7 +1,7 @@
 # ADR-064: Stub Remediation & Full Implementation — v3.5.22
 
 **Date:** 2026-03-17
-**Status:** In Progress
+**Status:** Implemented (22 stubs fully implemented in v3.5.43, PR #1438)
 **Context:** Deep capability audit (ADR-063) identified stub implementations and broken features. This ADR documents the remediation plan and tracks which items were already functional vs genuinely needing fixes.
 
 ## Audit Correction

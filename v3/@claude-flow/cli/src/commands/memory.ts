@@ -1446,6 +1446,14 @@ const initMemoryCommand: Command = {
         output.writeln(output.dim(`Synced to: ${claudeDbPath}`));
       }
 
+      // Fix #1428: ONNX worker threads keep the event loop alive after init.
+      // Force-exit after a short delay to allow final I/O to flush.
+      if (typeof globalThis !== 'undefined') {
+        setTimeout(() => {
+          process.exit(0);
+        }, 500).unref();
+      }
+
       return {
         success: true,
         data: result

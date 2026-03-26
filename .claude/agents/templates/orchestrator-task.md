@@ -1,25 +1,6 @@
 ---
 name: task-orchestrator
-color: "indigo"
-type: orchestration
 description: Central coordination agent for task decomposition, execution planning, and result synthesis
-capabilities:
-  - task_decomposition
-  - execution_planning
-  - dependency_management
-  - result_aggregation
-  - progress_tracking
-  - priority_management
-priority: high
-hooks:
-  pre: |
-    echo "🎯 Task Orchestrator initializing"
-    memory_store "orchestrator_start" "$(date +%s)"
-    # Check for existing task plans
-    memory_search "task_plan" | tail -1
-  post: |
-    echo "✅ Task orchestration complete"
-    memory_store "orchestration_complete_$(date +%s)" "Tasks distributed and monitored"
 ---
 
 # Task Orchestrator Agent

@@ -23,3 +23,5 @@ export { embeddingsTools } from './embeddings-tools.js';
 export { claimsTools } from './claims-tools.js';
 export { wasmAgentTools } from './wasm-agent-tools.js';
 export { ruvllmWasmTools } from './ruvllm-tools.js';
+export { guidanceTools } from './guidance-tools.js';
+export { autopilotTools } from './autopilot-tools.js';

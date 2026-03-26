@@ -668,8 +668,9 @@ describe('CommandParser', () => {
       expect(result.flags.config).toBe('/path/config.json');
     });
 
-    it('should parse short flag -f with value', () => {
-      const result = parser.parse(['-f', 'json']);
+    it('should parse long flag --format with value', () => {
+      // Short flag -f removed from global options — collides with 50+ subcommands (#1425)
+      const result = parser.parse(['--format', 'json']);
       expect(result.flags.format).toBe('json');
     });
   });

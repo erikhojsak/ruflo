@@ -1,44 +1,6 @@
 ---
 name: dual-orchestrator
-type: orchestrator
-color: "#E74C3C"
 description: Orchestrates Claude Code (interactive) + Codex (headless) for hybrid workflows
-capabilities:
-  - hybrid_orchestration
-  - interactive_reasoning
-  - parallel_execution
-  - workflow_routing
-  - platform_selection
-priority: critical
-platform: dual
-modes:
-  interactive:
-    platform: claude-code
-    use_for:
-      - complex-reasoning
-      - architecture-decisions
-      - debugging
-      - real-time-review
-  headless:
-    platform: codex
-    use_for:
-      - parallel-execution
-      - batch-processing
-      - code-generation
-      - documentation
-      - testing
-hooks:
-  pre: |
-    echo "🔀 Dual Orchestrator analyzing task routing"
-    # Determine optimal platform
-    if echo "$TASK" | grep -qE "(explain|debug|design|review|help|understand)"; then
-      echo "→ Routing to Claude Code (interactive)"
-    else
-      echo "→ Routing to Codex (headless parallel)"
-    fi
-  post: |
-    echo "✨ Dual workflow complete"
-    npx claude-flow@v3alpha memory list --namespace results
 ---
 
 # Dual-Mode Orchestrator

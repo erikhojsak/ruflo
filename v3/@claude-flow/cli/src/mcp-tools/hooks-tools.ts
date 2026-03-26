@@ -1556,13 +1556,13 @@ export const hooksSessionStart: MCPTool = {
     properties: {
       sessionId: { type: 'string', description: 'Optional session ID' },
       restoreLatest: { type: 'boolean', description: 'Restore latest session state' },
-      startDaemon: { type: 'boolean', description: 'Auto-start worker daemon (default: true)' },
+      startDaemon: { type: 'boolean', description: 'Start worker daemon (default: false — opt-in to prevent unintended token usage)' },
     },
   },
   handler: async (params: Record<string, unknown>) => {
     const sessionId = (params.sessionId as string) || `session-${Date.now()}`;
     const restoreLatest = params.restoreLatest as boolean;
-    const shouldStartDaemon = params.startDaemon !== false;
+    const shouldStartDaemon = params.startDaemon === true;
 
     // Auto-start daemon if enabled
     let daemonStatus: { started: boolean; pid?: number; error?: string } = { started: false };
