@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+.env
+.env.*
+.git
+.gitignore
+.DS_Store
+*.log
+# All runtime state lives in ./data — never bake dev state into the image.
+# The Dockerfile creates /app/data fresh at build time; docker-compose mounts it.
+data/
+Dockerfile
+.dockerignore
+README.md
