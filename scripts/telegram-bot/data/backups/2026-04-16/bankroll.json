@@ -1,0 +1,16 @@
+{
+  "6205494524": {
+    "balance": 0,
+    "bets": [
+      {
+        "id": 1,
+        "stake": 1,
+        "odds": 3.3,
+        "desc": "Real Madrid vs Barcelona",
+        "result": null,
+        "createdAt": "2026-04-16T12:13:36.316Z"
+      }
+    ],
+    "startBalance": 0
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "subscribers": {
+    "6205494524": {
+      "active": true
+    },
+    "5021319676": {
+      "active": true,
+      "leagues": [
+        "icehockey_nhl"
+      ]
+    }
+  },
+  "sentSignals": {
+    "6205494524:VALUE:Liverpool vs Man City:Man City": 1776374157428,
+    "6205494524:VALUE:Liverpool vs Man City:Liverpool": 1776374157428,
+    "6205494524:VALUE:Arsenal vs Chelsea:Draw": 1776374157429,
+    "6205494524:VALUE:Real Madrid vs Barcelona:Draw": 1776374157429,
+    "6205494524:VALUE:Real Madrid vs Barcelona:Barcelona": 1776374157430,
+    "6205494524:VALUE:Real Madrid vs Barcelona:Real Madrid": 1776374157430,
+    "6205494524:VALUE:Liverpool vs Man City:Draw": 1776374157430
+  },
+  "lastRun": "2026-04-16T21:28:53.598Z",
+  "stats": {
+    "runs": 1111,
+    "arbs": 2810,
+    "values": 247135,
+    "steams": 1239
+  }
+}
